@@ -4,6 +4,7 @@ import open3d as o3d
 import time
 import json
 
+#--- GENERAL OPTIONS ---#
 def get_bones_position(file):
     bodies = file.rigid_bodies
     body_edges = [
@@ -34,7 +35,7 @@ def get_bones_position(file):
         for body in bodies: 
             bones = file.rigid_bodies[body]
             
-            # There is no position, set 0,0,0 
+            # set 0,0,0 in case point missing
             fixed_positions = [
                 pos if pos is not None else [0.0, 0.0, 0.0]
                 for pos in bones.positions
@@ -99,29 +100,28 @@ def show_points(file, bones_pos, body_edges, colors):
 
     skeleton_joints = o3d.geometry.LineSet()                            # Create a LineSet for skeletal connections
     skeleton_joints.points = o3d.utility.Vector3dVector(bones_pos[0])   # Assign positions of joints
-    center_skel = skeleton_joints.get_center()                          # Compute the center of the skeletal structure
+    # center_skel = skeleton_joints.get_center()                          # Compute the center of the skeletal structure
     skeleton_joints.lines = o3d.utility.Vector2iVector(body_edges)      # Define the connections between joints
     skeleton_joints.colors = o3d.utility.Vector3dVector(colors)         # Assign colors to the skeletal connections
 
     vis = o3d.visualization.Visualizer()    # Initialize the Open3D visualizer
     vis.create_window()                     # Create the visualization window
 
-    # Add geometries to the visualizer
     vis.add_geometry(skeleton_joints)   # Add skeletal connections
     vis.add_geometry(keypoints)         # Add the point cloud representing joints
 
     # Convert Open3D point cloud to a NumPy array for further processing
-    points_np = np.asarray(keypoints.points)
+    # points_np = np.asarray(keypoints.points)
 
     # Settings for the video
-    duration = 5
+    duration = 15 #seconds
     frame_rate = file.frame_rate
     frame_count = int(frame_rate * duration)  
     interval = 1 / frame_rate  
 
     for i in range(frame_count):
         new_joints = bones_pos[i]
-        center_skel = skeleton_joints.get_center()
+        # center_skel = skeleton_joints.get_center()
         skeleton_joints.points = o3d.utility.Vector3dVector(new_joints)
         keypoints.points = o3d.utility.Vector3dVector(new_joints)
 

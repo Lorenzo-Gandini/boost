@@ -52,35 +52,24 @@ def get_bones_position(file):
 
 def interpolate_bones_positions(bones_pos):
     """
-    Interpolate missing or invalid bone positions (all zeros) in bones_pos.
-    
-    Parameters:
-        bones_pos (np.ndarray): Array of joint positions (frames x joints x 3).
-        
-    Returns:
-        np.ndarray: Interpolated bones_pos.
+    Interpolate invalid frames
     """
     interpolated_bones = bones_pos.copy()
     num_frames, num_joints, _ = bones_pos.shape
 
     for joint in range(num_joints):
-        # Identify invalid frames (all coordinates are zero)
-        invalid_frames = (bones_pos[:, joint] == 0).all(axis=1)
-
-        for dim in range(3):  # Iterate over x, y, z coordinates
-            # Extract the coordinate values for the current joint and dimension
-            joint_coord = bones_pos[:, joint, dim]
+        invalid_frames = (bones_pos[:, joint] == 0).all(axis=1) #find invalid (=0,0,0) frames
+        
+        for dim in range(3): #3=x,y,z
+            joint_coord = bones_pos[:, joint, dim]  #extract the value for the current joint and dimension
 
             if np.any(invalid_frames):
-                # Create a valid mask
-                valid_mask = ~invalid_frames
-                
-                # Interpolate only if there are valid points
+                valid_mask = ~invalid_frames        #~ è operatore NOT che agisce su array, creiamo una maschera complementare
                 if np.any(valid_mask):
                     valid_indices = np.where(valid_mask)[0]
                     invalid_indices = np.where(invalid_frames)[0]
 
-                    # Interpolate using NumPy's interpolation function
+                    # NumPy's interpolation function
                     joint_coord[invalid_frames] = np.interp(
                         invalid_indices,
                         valid_indices,
@@ -93,25 +82,22 @@ def interpolate_bones_positions(bones_pos):
     return interpolated_bones
 
 def show_points(file, bones_pos, body_edges, colors):
-    
+    """
+    Show the animation of the points coming from the uploaded csv
+    """
     # Create a point cloud for joints
     keypoints = o3d.geometry.PointCloud()
     keypoints.points = o3d.utility.Vector3dVector(bones_pos[0])         # Assign the positions of joints the first frame
 
     skeleton_joints = o3d.geometry.LineSet()                            # Create a LineSet for skeletal connections
     skeleton_joints.points = o3d.utility.Vector3dVector(bones_pos[0])   # Assign positions of joints
-    # center_skel = skeleton_joints.get_center()                          # Compute the center of the skeletal structure
     skeleton_joints.lines = o3d.utility.Vector2iVector(body_edges)      # Define the connections between joints
     skeleton_joints.colors = o3d.utility.Vector3dVector(colors)         # Assign colors to the skeletal connections
 
     vis = o3d.visualization.Visualizer()    # Initialize the Open3D visualizer
     vis.create_window()                     # Create the visualization window
-
-    vis.add_geometry(skeleton_joints)   # Add skeletal connections
-    vis.add_geometry(keypoints)         # Add the point cloud representing joints
-
-    # Convert Open3D point cloud to a NumPy array for further processing
-    # points_np = np.asarray(keypoints.points)
+    vis.add_geometry(skeleton_joints)       # Add skeletal connections
+    vis.add_geometry(keypoints)             # Add the point cloud representing joints
 
     # Settings for the video
     duration = 15 #seconds
@@ -121,41 +107,32 @@ def show_points(file, bones_pos, body_edges, colors):
 
     for i in range(frame_count):
         new_joints = bones_pos[i]
-        # center_skel = skeleton_joints.get_center()
         skeleton_joints.points = o3d.utility.Vector3dVector(new_joints)
         keypoints.points = o3d.utility.Vector3dVector(new_joints)
 
         # Update the geometries of the skeleton
         vis.update_geometry(skeleton_joints)
         vis.update_geometry(keypoints)
-        
         vis.update_renderer()
         vis.poll_events()
 
         time.sleep(interval)
-        
     vis.run()
 
 
 #--- LEGS ---#
 def calculate_angles(bones_pos):
     """
-    Calcola gli angoli per tutti i frame e li restituisce come lista di dizionari.
-    
-    Parameters:
-        bones_pos (np.ndarray): Array delle posizioni dei joints (frames x joints x 3).
-        
-    Returns:
-        list: Lista di dizionari contenenti gli angoli per ciascun frame.
+    Give back a dictionary with all the angles of the legs
     """
     angles = []
 
     for frame_idx, joints in enumerate(bones_pos):
         # extract angles for the specific frame
-        knee_l_angle = calculate_angle(joints[13] - joints[14], joints[15] - joints[14])  # Ginocchio sinistro
-        knee_r_angle = calculate_angle(joints[17] - joints[18], joints[19] - joints[18])  # Ginocchio destro
-        ankle_l_angle = calculate_angle(joints[14] - joints[15], joints[16] - joints[15])  # Caviglia sinistra
-        ankle_r_angle = calculate_angle(joints[18] - joints[19], joints[20] - joints[19])  # Caviglia destra
+        knee_l_angle = calculate_angle(joints[13] - joints[14], joints[15] - joints[14])    # ginocchio sinistro
+        knee_r_angle = calculate_angle(joints[17] - joints[18], joints[19] - joints[18])    # inocchio destro
+        ankle_l_angle = calculate_angle(joints[14] - joints[15], joints[16] - joints[15])   # caviglia sinistra
+        ankle_r_angle = calculate_angle(joints[18] - joints[19], joints[20] - joints[19])   # caviglia destra
 
         # dictionary with the angles and the position
         angles.append({
@@ -170,17 +147,18 @@ def calculate_angles(bones_pos):
 
 def calculate_angle(v1, v2):
     """
-    Calcola l'angolo tra due vettori in gradi.
+    Angle between two vectors
     """
     v1_norm = np.linalg.norm(v1)
     v2_norm = np.linalg.norm(v2)
 
-        # Check for zero-length vectors
+    # in case one of vectors is 0, angle is 0
     if v1_norm == 0 or v2_norm == 0:
-        return 0.0  # Default angle for invalid vectors
+        return 0.0  
 
     dot_product = np.dot(v1, v2)
-    # Clamp the value to avoid numerical issues with acos
+    
+    # clip value to avoid numerical issues with acos
     cos_theta = np.clip(dot_product / (v1_norm * v2_norm), -1.0, 1.0)
     angle_rad = np.arccos(cos_theta)
     angle_deg = np.degrees(angle_rad)
@@ -188,7 +166,7 @@ def calculate_angle(v1, v2):
     
 def save_angles(angles):
     """
-    Salva gli angoli calcolati in un file JSON.
+    Save values into a json
     """
     filename="output/angles_1.json"
     with open(filename, 'w') as f:
@@ -197,6 +175,9 @@ def save_angles(angles):
 
 #--- SPINE BACK ---#
 def save_spine_values(bones_pos):
+    """
+    Extract metrics for the spine and save the json
+    """
     spine_metrics = []
 
     for frame_idx, joints in enumerate(bones_pos):
@@ -222,17 +203,10 @@ def save_spine_values(bones_pos):
 def load_spine_data(file_path):
     """
     Load spine metrics from a JSON file and convert to a DataFrame.
-
-    Parameters:
-        file_path (str): Path to the JSON file.
-
-    Returns:
-        pd.DataFrame: DataFrame with spine data, including x, y, z for each joint.
     """
     with open(file_path, 'r') as f:
         data = json.load(f)
 
-    # Flatten the JSON structure for Pandas
     frames = []
     for frame_data in data:
         frame = {

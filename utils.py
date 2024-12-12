@@ -42,12 +42,102 @@ def get_bones_position(file):
             bones_pos.append(fixed_positions)
 
     bones_pos = np.array(bones_pos).transpose((1, 0, 2))
-    
-    # put a color to each dot
     colors = [[1, 0, 0] for i in range(len(body_edges))]
+
+    #interpolate zeros
+    bones_pos = interpolate_bones_positions(bones_pos)
 
     return body_edges, bones_pos, colors
 
+def interpolate_bones_positions(bones_pos):
+    """
+    Interpolate missing or invalid bone positions (all zeros) in bones_pos.
+    
+    Parameters:
+        bones_pos (np.ndarray): Array of joint positions (frames x joints x 3).
+        
+    Returns:
+        np.ndarray: Interpolated bones_pos.
+    """
+    interpolated_bones = bones_pos.copy()
+    num_frames, num_joints, _ = bones_pos.shape
+
+    for joint in range(num_joints):
+        # Identify invalid frames (all coordinates are zero)
+        invalid_frames = (bones_pos[:, joint] == 0).all(axis=1)
+
+        for dim in range(3):  # Iterate over x, y, z coordinates
+            # Extract the coordinate values for the current joint and dimension
+            joint_coord = bones_pos[:, joint, dim]
+
+            if np.any(invalid_frames):
+                # Create a valid mask
+                valid_mask = ~invalid_frames
+                
+                # Interpolate only if there are valid points
+                if np.any(valid_mask):
+                    valid_indices = np.where(valid_mask)[0]
+                    invalid_indices = np.where(invalid_frames)[0]
+
+                    # Interpolate using NumPy's interpolation function
+                    joint_coord[invalid_frames] = np.interp(
+                        invalid_indices,
+                        valid_indices,
+                        joint_coord[valid_mask]
+                    )
+            
+            # Update the interpolated_bones array for the current dimension
+            interpolated_bones[:, joint, dim] = joint_coord
+
+    return interpolated_bones
+
+def show_points(file, bones_pos, body_edges, colors):
+    
+    # Create a point cloud for joints
+    keypoints = o3d.geometry.PointCloud()
+    keypoints.points = o3d.utility.Vector3dVector(bones_pos[0])         # Assign the positions of joints the first frame
+
+    skeleton_joints = o3d.geometry.LineSet()                            # Create a LineSet for skeletal connections
+    skeleton_joints.points = o3d.utility.Vector3dVector(bones_pos[0])   # Assign positions of joints
+    center_skel = skeleton_joints.get_center()                          # Compute the center of the skeletal structure
+    skeleton_joints.lines = o3d.utility.Vector2iVector(body_edges)      # Define the connections between joints
+    skeleton_joints.colors = o3d.utility.Vector3dVector(colors)         # Assign colors to the skeletal connections
+
+    vis = o3d.visualization.Visualizer()    # Initialize the Open3D visualizer
+    vis.create_window()                     # Create the visualization window
+
+    # Add geometries to the visualizer
+    vis.add_geometry(skeleton_joints)   # Add skeletal connections
+    vis.add_geometry(keypoints)         # Add the point cloud representing joints
+
+    # Convert Open3D point cloud to a NumPy array for further processing
+    points_np = np.asarray(keypoints.points)
+
+    # Settings for the video
+    duration = 5
+    frame_rate = file.frame_rate
+    frame_count = int(frame_rate * duration)  
+    interval = 1 / frame_rate  
+
+    for i in range(frame_count):
+        new_joints = bones_pos[i]
+        center_skel = skeleton_joints.get_center()
+        skeleton_joints.points = o3d.utility.Vector3dVector(new_joints)
+        keypoints.points = o3d.utility.Vector3dVector(new_joints)
+
+        # Update the geometries of the skeleton
+        vis.update_geometry(skeleton_joints)
+        vis.update_geometry(keypoints)
+        
+        vis.update_renderer()
+        vis.poll_events()
+
+        time.sleep(interval)
+        
+    vis.run()
+
+
+#--- LEGS ---#
 def calculate_angles(bones_pos):
     """
     Calcola gli angoli per tutti i frame e li restituisce come lista di dizionari.
@@ -100,88 +190,63 @@ def save_angles(angles):
     """
     Salva gli angoli calcolati in un file JSON.
     """
-    filename="output/angles_2.json"
+    filename="output/angles_1.json"
     with open(filename, 'w') as f:
         json.dump(angles, f, indent=4)
     print(f"Angoli salvati in: {filename}")
 
-def show_points(file, bones_pos, body_edges, colors):
-    
-    # Create a point cloud for joints
-    keypoints = o3d.geometry.PointCloud()
-    keypoints.points = o3d.utility.Vector3dVector(bones_pos[0])         # Assign the positions of joints the first frame
+#--- SPINE BACK ---#
+def save_spine_values(bones_pos):
+    spine_metrics = []
 
-    skeleton_joints = o3d.geometry.LineSet()                            # Create a LineSet for skeletal connections
-    skeleton_joints.points = o3d.utility.Vector3dVector(bones_pos[0])   # Assign positions of joints
-    center_skel = skeleton_joints.get_center()                          # Compute the center of the skeletal structure
-    skeleton_joints.lines = o3d.utility.Vector2iVector(body_edges)      # Define the connections between joints
-    skeleton_joints.colors = o3d.utility.Vector3dVector(colors)         # Assign colors to the skeletal connections
+    for frame_idx, joints in enumerate(bones_pos):
+        # Extract spine positions
+        hip = joints[0].tolist()
+        ab = joints[1].tolist()
+        chest = joints[2].tolist()
 
-    vis = o3d.visualization.Visualizer()    # Initialize the Open3D visualizer
-    vis.create_window()                     # Create the visualization window
+        # Append metrics for the current frame
+        spine_metrics.append({
+            "frame": frame_idx,
+            "hip": hip,
+            "ab": ab,
+            "chest": chest
+        })
 
-    # Add geometries to the visualizer
-    vis.add_geometry(skeleton_joints)   # Add skeletal connections
-    vis.add_geometry(keypoints)         # Add the point cloud representing joints
+    filename = "output/spine_metrics_1.json"
 
-    # Convert Open3D point cloud to a NumPy array for further processing
-    points_np = np.asarray(keypoints.points)
+    with open(filename, 'w') as f:
+        json.dump(spine_metrics, f, indent=4)
+    print(f"Spine metrics saved to: {filename}")
 
-    # Settings for the video
-    duration = 5
-    frame_rate = file.frame_rate
-    frame_count = int(frame_rate * duration)  
-    interval = 1 / frame_rate  
+def load_spine_data(file_path):
+    """
+    Load spine metrics from a JSON file and convert to a DataFrame.
 
-    for i in range(frame_count):
-        new_joints = bones_pos[i]
-        center_skel = skeleton_joints.get_center()
-        skeleton_joints.points = o3d.utility.Vector3dVector(new_joints)
-        keypoints.points = o3d.utility.Vector3dVector(new_joints)
+    Parameters:
+        file_path (str): Path to the JSON file.
 
-        # Update the geometries of the skeleton
-        vis.update_geometry(skeleton_joints)
-        vis.update_geometry(keypoints)
-        
-        vis.update_renderer()
-        vis.poll_events()
-
-        time.sleep(interval)
-        
-    vis.run()
-
-# Function to interpolate invalid (zero) values in a JSON file
-def interpolate_invalid_values(file_path):
-    # Load the JSON file
+    Returns:
+        pd.DataFrame: DataFrame with spine data, including x, y, z for each joint.
+    """
     with open(file_path, 'r') as f:
         data = json.load(f)
-    
-    # Convert JSON to DataFrame
-    df = pd.DataFrame(data)
-    
-    # List of angles to interpolate
-    angles = ["knee_l", "knee_r", "ankle_l", "ankle_r"]
-    
-    for angle in angles:
-        # Get the indices of invalid (zero) values
-        invalid_indices = df[df[angle] == 0].index
-        
-        for idx in invalid_indices:
-            # Find previous and next valid indices
-            prev_idx = idx - 1
-            next_idx = idx + 1
-            
-            while next_idx < len(df) and df.at[next_idx, angle] == 0:
-                next_idx += 1
-            
-            # If both previous and next valid values exist, interpolate
-            if 0 <= prev_idx < len(df) and next_idx < len(df):
-                prev_value = df.at[prev_idx, angle]
-                next_value = df.at[next_idx, angle]
-                df.at[idx, angle] = (prev_value + next_value) / 2
-    
-    # Save the updated DataFrame back to the JSON file
-    with open(file_path, 'w') as f:
-        json.dump(df.to_dict(orient='records'), f, indent=4)
-    
-    print(f"Interpolated invalid values and saved to {file_path}")
+
+    # Flatten the JSON structure for Pandas
+    frames = []
+    for frame_data in data:
+        frame = {
+            "frame": frame_data["frame"],
+            "hip_x": frame_data["hip"][0],
+            "hip_y": frame_data["hip"][1],
+            "hip_z": frame_data["hip"][2],
+            "ab_x": frame_data["ab"][0],
+            "ab_y": frame_data["ab"][1],
+            "ab_z": frame_data["ab"][2],
+            "chest_x": frame_data["chest"][0],
+            "chest_y": frame_data["chest"][1],
+            "chest_z": frame_data["chest"][2],
+        }
+        frames.append(frame)
+
+    return pd.DataFrame(frames)

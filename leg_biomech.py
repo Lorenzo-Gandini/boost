@@ -1,3 +1,17 @@
+"""
+Leg Biomechanical Analysis
+This file focuses on the biomechanical analysis of lower limb angles during pedaling, comparing two different settings. 
+
+Key Analyses:
+- Extract and analyze knee and ankle joint angles over time.
+- Compare metrics such as mean, standard deviation, and amplitude of cycles between settings.
+- Visualize the results through various graphs:
+  1. Cycle Amplitudes Comparison
+  2. Cycle Durations Comparison
+  3. Angular Velocity Per Cycle
+  4. Detailed Cycle Analysis (Angle and Angular Velocity)
+"""
+
 import json
 import numpy as np
 import pandas as pd
@@ -6,34 +20,35 @@ from scipy.signal import find_peaks
 
 # Function to analyze a single angle
 def analyze_knee_angle(file_path, angle="knee_r"):
+    """
+    Analyze a specific angle from a JSON file.
+    """
     # Load JSON data
     with open(file_path, 'r') as f:
         data = json.load(f)
     df = pd.DataFrame(data)
 
-    # Extract angle values
     angles = df[angle].values
 
-    # Find peaks (maxima) and valleys (minima)
-    peaks, _ = find_peaks(angles, prominence=5)  # Adjust prominence based on noise
+    # peaks (maxima) and valleys (minima). CHECK PROMINENCE
+    peaks, _ = find_peaks(angles, prominence=5)  
     valleys, _ = find_peaks(-angles, prominence=5)
 
-    # Ensure equal number of peaks and valleys
+    # equal number of peaks and valleys to extract cycles
     num_cycles = min(len(peaks), len(valleys))
     peaks = peaks[:num_cycles]
     valleys = valleys[:num_cycles]
 
-    # Calculate cycle metrics
+    # cycle metrics
     cycle_amplitudes = angles[peaks] - angles[valleys]
-    cycle_durations = np.diff(peaks)  # In frames
-    cadence = 60 / (np.mean(cycle_durations) / 30)  # Assuming 30 FPS
+    cycle_durations = np.diff(peaks)
+    cadence = 60 / (np.mean(cycle_durations) / 30)  # 30 FPS
 
-    # Calculate angular velocity
-    angular_velocity = np.gradient(angles, 1 / 30)  # Assuming 30 FPS
+    # angular velocity
+    angular_velocity = np.gradient(angles, 1 / 30)  # 30 FPS
     angular_velocity_mean = np.mean(angular_velocity)
     angular_velocity_std = np.std(angular_velocity)
 
-    # Update stats
     stats = {
         "mean": np.mean(angles),
         "std": np.std(angles),
@@ -49,12 +64,14 @@ def analyze_knee_angle(file_path, angle="knee_r"):
 
     return stats, peaks, valleys, angles, cycle_amplitudes, cycle_durations
 
-# Function to compare statistics between settings
 def compare_settings(file_1, file_2, angles):
+    """
+    Compare statistics for specific angles between two settings.
+    """
     comparison_output = {}
     for angle in angles:
-        stats1, _, _, _, cycle_amplitudes1, cycle_durations1 = analyze_knee_angle(file_1, angle=angle)
-        stats2, _, _, _, cycle_amplitudes2, cycle_durations2 = analyze_knee_angle(file_2, angle=angle)
+        stats1, _, _, _, _, _ = analyze_knee_angle(file_1, angle=angle)
+        stats2, _, _, _, _, _ = analyze_knee_angle(file_2, angle=angle)
 
         comparison_output[angle.upper()] = {
             "mean": f"Before: {stats1['mean']:.2f} - After: {stats2['mean']:.2f}",
@@ -71,13 +88,14 @@ def compare_settings(file_1, file_2, angles):
 
     return comparison_output
 
-# Plot cycle amplitudes
 def plot_cycle_amplitudes(angles1, angles2, peaks1, peaks2, valleys1, valleys2):
+    """
+    Plot cycle amplitudes for both settings.
+    """
     # Calculate amplitudes for each cycle
     cycle_amplitudes1 = angles1[peaks1] - angles1[valleys1[:len(peaks1)]]
     cycle_amplitudes2 = angles2[peaks2] - angles2[valleys2[:len(peaks2)]]
 
-    # Plot amplitudes
     plt.figure(figsize=(10, 6))
     plt.plot(cycle_amplitudes1, label="Setting 1 (Amplitude)", marker="o", linestyle="--", color="blue")
     plt.plot(cycle_amplitudes2, label="Setting 2 (Amplitude)", marker="o", linestyle="-", color="green")
@@ -89,13 +107,15 @@ def plot_cycle_amplitudes(angles1, angles2, peaks1, peaks2, valleys1, valleys2):
     plt.grid()
     plt.show()
 
-# Plot cycle durations
 def plot_cycle_durations(cycle_durations1, cycle_durations2):
-    # Convert to seconds (assuming 30 FPS)
+    """
+    Plot cycle durations for both settings.
+    """
+    
+    # Convert to seconds ( / 30 frames)
     cycle_durations1 = cycle_durations1 / 30
     cycle_durations2 = cycle_durations2 / 30
 
-    # Plot durations
     plt.figure(figsize=(10, 6))
     plt.plot(cycle_durations1, label="Setting 1 (Cycle Duration)", marker="o", linestyle="--", color="blue")
     plt.plot(cycle_durations2, label="Setting 2 (Cycle Duration)", marker="o", linestyle="-", color="green")
@@ -106,11 +126,16 @@ def plot_cycle_durations(cycle_durations1, cycle_durations2):
     plt.grid()
     plt.show()
 
-# Plot angular velocity per cycle
 def calculate_angular_velocity(angles, frame_rate=30):
+    """
+    Calculate angular velocity for a given angle series.
+    """
     return np.gradient(angles, 1 / frame_rate)
 
 def plot_angular_velocity_per_cycle(angles1, angles2, peaks1, peaks2):
+    """
+    Plot angular velocity per cycle for both settings.
+    """
     # Calculate angular velocities
     velocity1 = calculate_angular_velocity(angles1)
     velocity2 = calculate_angular_velocity(angles2)
@@ -119,7 +144,6 @@ def plot_angular_velocity_per_cycle(angles1, angles2, peaks1, peaks2):
     cycle_velocity1 = [np.mean(velocity1[peaks1[i]:peaks1[i+1]]) for i in range(len(peaks1) - 1)]
     cycle_velocity2 = [np.mean(velocity2[peaks2[i]:peaks2[i+1]]) for i in range(len(peaks2) - 1)]
 
-    # Plot velocities
     plt.figure(figsize=(10, 6))
     plt.plot(cycle_velocity1, label="Setting 1 (Angular Velocity)", marker="o", linestyle="--", color="blue")
     plt.plot(cycle_velocity2, label="Setting 2 (Angular Velocity)", marker="o", linestyle="-", color="green")
@@ -133,14 +157,6 @@ def plot_angular_velocity_per_cycle(angles1, angles2, peaks1, peaks2):
 def plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_index, frame_rate=30):
     """
     Plot angle and angular velocity for a specific cycle for two settings.
-    
-    Args:
-        angles1: Angles for setting 1.
-        angles2: Angles for setting 2.
-        peaks1: Peaks (cycle delimiters) for setting 1.
-        peaks2: Peaks (cycle delimiters) for setting 2.
-        cycle_index: Index of the cycle to analyze.
-        frame_rate: Frame rate of the recording (default 30 FPS).
     """
     # Extract cycle data for Setting 1
     start_frame1 = peaks1[cycle_index]
@@ -154,7 +170,7 @@ def plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_in
     angles_cycle2 = angles2[start_frame2:end_frame2]
     velocity_cycle2 = np.gradient(angles_cycle2, 1 / frame_rate)
 
-# Create figure and axis
+    # Create figure and axis
     fig, ax1 = plt.subplots(figsize=(12, 6))
 
     # Plot angles on primary Y-axis
@@ -178,7 +194,6 @@ def plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_in
     plt.title(f"Angle and Angular Velocity for Cycle {cycle_index + 1}")
     plt.show()
 
-
 # Load files
 file_1 = "output/angles.json"
 file_2 = "output/angles_2.json"
@@ -196,17 +211,17 @@ df2 = pd.DataFrame(data2)
 angles = ["knee_l", "knee_r", "ankle_l", "ankle_r"]
 comparison_output = compare_settings(file_1, file_2, angles)
 
-# Print the results
+# Print results
 for angle, metrics in comparison_output.items():
     print(f"{angle}:")
     for metric, values in metrics.items():
         print(f"  {metric}: {values}")
     print()
 
-# Example plot
+#PLOTS
 stats1, peaks1, valleys1, angles1, cycle_amplitudes1, cycle_durations1 = analyze_knee_angle(file_1, angle="knee_l")
 stats2, peaks2, valleys2, angles2, cycle_amplitudes2, cycle_durations2 = analyze_knee_angle(file_2, angle="knee_l")
 plot_cycle_amplitudes(angles1, angles2, peaks1, peaks2, valleys1, valleys2)
 plot_cycle_durations(cycle_durations1, cycle_durations2)
-plot_angular_velocity_per_cycle(angles1, angles2, peaks1, peaks2) # Rimuovere, poco significativa ?
+plot_angular_velocity_per_cycle(angles1, angles2, peaks1, peaks2)
 plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_index=75)

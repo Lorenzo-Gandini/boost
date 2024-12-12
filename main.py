@@ -11,6 +11,6 @@ take = csv.Take().readCSV(filename)
 body_edges, bones_pos, colors = get_bones_position(take)
 angles = calculate_angles(bones_pos)
 save_angles(angles)
-# show_points(take, bones_pos, body_edges, colors)
+show_points(take, bones_pos, body_edges, colors)
 save_spine_values(bones_pos)
 

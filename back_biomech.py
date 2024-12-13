@@ -1,13 +1,13 @@
-"""
+'''
 Back Biomechanical Analysis
 This file analyzes spine oscillations and the angle between the spine and the ground, between two different settings.
 It provides various statistical information and some graphs:
-- Lateral oscillations of the spine
+- Lateral oscillations of the spine (respect of y-axes)
 - Lateral oscilaltion of a point of the spine (abdomen)
 - Envelope of oscillations for maximum amplitude trends
 - angle of the spine ([hip-ab] with [ab-chest])
 - angle between the full spine ([hip-chest]) and the ground [z-axes]
-"""
+'''
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,9 @@ from utils import load_spine_data, calculate_angle
 from scipy.signal import hilbert
 
 def analyze_spine_oscillations(df):
-
+    '''
+    Compares how much spine move respect to the mean value of all the osccilations
+    '''
     hip_positions = df[["hip_x", "hip_y"]].values
     chest_positions = df[["chest_x", "chest_y"]].values
 
@@ -40,9 +42,9 @@ def analyze_spine_oscillations(df):
     return pd.Series(oscillations, name="oscillations"), summary_stats
 
 def plot_spine_oscillations(oscillations, title="Spine Oscillations"):
-    """
+    '''
     Plot oscillations of a single setting
-    """
+    '''
     plt.figure(figsize=(10, 6))
     plt.plot(oscillations, label="Lateral Oscillations", color="blue")
     plt.title(title)
@@ -55,9 +57,9 @@ def plot_spine_oscillations(oscillations, title="Spine Oscillations"):
 
 # REMOVE? TOO MESSY. 
 def plot_combined_spine_oscillations(oscillations_1, oscillations_2, title="Ab Spine Oscillations Comparison"):
-    """
+    '''
     Plot combined spine oscillations
-    """
+    '''
     plt.figure(figsize=(10, 6))
     plt.plot(oscillations_1, label="Setting 1", color="blue")
     plt.plot(oscillations_2, label="Setting 2", color="green")
@@ -70,11 +72,11 @@ def plot_combined_spine_oscillations(oscillations_1, oscillations_2, title="Ab S
     plt.show()
 
 def plot_envelope(oscillations, title="Envelope of Oscillations"):
-    """
+    '''
     Se un setting ha un envelope più costante, può essere indice di maggiore stabilità del movimento.
     Oscillazioni molto variabili (con envelope che fluttua molto) possono indicare mancanza di controllo o irregolarità.
     Quando questo cresce o diminuisce nel tempo, corrisponde anche cambiamenti di intensità del movimento.
-    """
+    '''
     analytic_signal = hilbert(oscillations)
     amplitude_envelope = np.abs(analytic_signal)
 
@@ -89,9 +91,9 @@ def plot_envelope(oscillations, title="Envelope of Oscillations"):
     plt.show()
 
 def calculate_ab_statistics(df):
-    """
+    '''
     Provides stats and the oscillations about the "ab" (=abdomen) point
-    """
+    '''
     ab_x, ab_y, ab_z = df["ab_x"], df["ab_y"], df["ab_z"]
 
     oscillations = df["ab_y"] - df["ab_y"].mean()
@@ -133,12 +135,21 @@ def calculate_spine_alignment(df):
         # Vectors
         hip_ab = ab - hip
         ab_chest = chest - ab
-        angle_segments = calculate_angle(hip_ab, ab_chest)      #from utils
 
-        # hip-chest relative to the ground (z-axis)
+        # normalization
+        if np.linalg.norm(hip_ab) > 0 and np.linalg.norm(ab_chest) > 0:
+            angle_segments_raw = calculate_angle(hip_ab, ab_chest)
+            angle_segments = 180 - angle_segments_raw  # Complementary angle
+        else:
+            angle_segments = None  # Handle invalid vectors
+
+        # hip-chest segment relative to the ground (z-axis)
         hip_chest = chest - hip
         ground_vector = np.array([0, 0, 1])
-        angle_ground = calculate_angle(hip_chest, ground_vector)
+        if np.linalg.norm(hip_chest) > 0:
+            angle_ground = calculate_angle(hip_chest, ground_vector)
+        else:
+            angle_ground = None
 
         angles.append({
             "frame": idx,
@@ -146,12 +157,18 @@ def calculate_spine_alignment(df):
             "angle_ground": angle_ground
         })
 
+        if idx < 10:  # Solo per i primi 10 frame
+            print(f"Frame {idx}:")
+            print(f"  hip_ab: {hip_ab}, ab_chest: {ab_chest}")
+            print(f"  Angle between segments (raw): {angle_segments_raw}")
+            print(f"  Angle between segments (corrected): {angle_segments}")
+
     return pd.DataFrame(angles)
 
 def plot_spine_alignment(angles_df, title="Spine Alignment Angles"):
-    """
+    '''
     Plot spine alignment angles over time.
-    """
+    '''
     plt.figure(figsize=(12, 6))
 
     # ground
@@ -168,9 +185,9 @@ def plot_spine_alignment(angles_df, title="Spine Alignment Angles"):
     plt.show()
 
 def plot_combined_spine_alignment(angles_df_1, angles_df_2, title="Combined Spine Alignment Angles"):
-    """
+    '''
     Plot combined for two settings of spine alignment angles
-    """
+    '''
     plt.figure(figsize=(12, 6))
 
     # ground
@@ -225,9 +242,11 @@ for stat, value in stats_ab_2.items():
 # Generate plots
 plot_spine_oscillations(oscillations_1, title="Spine Oscillations - Setting 1")
 plot_spine_oscillations(oscillations_2, title="Spine Oscillations - Setting 2")
-# plot_combined_spine_oscillations(oscillations_1, oscillations_2)
-plot_envelope(ab_oscillations_1, title="Envelope-1 - 'ab' Point")
-plot_envelope(ab_oscillations_2, title="Envelope-2 - 'ab' Point")
+plot_spine_oscillations(ab_oscillations_1, title="AB Oscillations - Setting 1")
+plot_spine_oscillations(ab_oscillations_2, title="AB Oscillations - Setting 2")
+plot_combined_spine_oscillations(oscillations_1, oscillations_2)
+# plot_envelope(ab_oscillations_1, title="Envelope-1 - 'ab' Point")
+# plot_envelope(ab_oscillations_2, title="Envelope-2 - 'ab' Point")
 plot_spine_alignment(alignment_angles_1, title="Spine Alignment Angles - Setting 1")
 plot_spine_alignment(alignment_angles_2, title="Spine Alignment Angles - Setting 2")
 plot_combined_spine_alignment(alignment_angles_1, alignment_angles_2, title="Combined Spine Alignment Angles")

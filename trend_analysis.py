@@ -5,7 +5,7 @@ import io
 
 
 # Load data
-file_path = "Sessioni allenamento/Gandini Lorenzo/Gandini Lorenzo - Avvio rapido - 2024-11-22 18-01.csv"
+file_path = "training_data/Gandini Lorenzo/Gandini Lorenzo - Avvio rapido - 2024-11-22 18-01.csv"
 
 # Read the file, eliminating trailing semicolons since Technogym leave a ";" at the end of every line exept the first one
 with open(file_path, 'r', encoding='utf-16') as file:

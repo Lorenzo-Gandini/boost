@@ -162,13 +162,14 @@ def calculate_angle(v1, v2):
     cos_theta = np.clip(dot_product / (v1_norm * v2_norm), -1.0, 1.0)
     angle_rad = np.arccos(cos_theta)
     angle_deg = np.degrees(angle_rad)
+    
     return angle_deg
     
 def save_angles(angles):
     """
     Save values into a json
     """
-    filename="output/angles_1.json"
+    filename="output/angles_2.json"
     with open(filename, 'w') as f:
         json.dump(angles, f, indent=4)
     print(f"Angoli salvati in: {filename}")
@@ -194,7 +195,7 @@ def save_spine_values(bones_pos):
             "chest": chest
         })
 
-    filename = "output/spine_metrics_1.json"
+    filename = "output/spine_metrics_2.json"
 
     with open(filename, 'w') as f:
         json.dump(spine_metrics, f, indent=4)

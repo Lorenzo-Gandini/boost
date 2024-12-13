@@ -7,9 +7,9 @@ Key Analyses:
 - Compare metrics such as mean, standard deviation, and amplitude of cycles between settings.
 - Visualize the results through various graphs:
   1. Cycle Amplitudes Comparison
-  2. Cycle Durations Comparison
-  3. Angular Velocity Per Cycle
-  4. Detailed Cycle Analysis (Angle and Angular Velocity)
+  2. Detailed Cycle Analysis (Angle and Angular Velocity)
+  3. Distribution of anglees (peaks and valleys)
+  4. Comparison between angles with polar graph (peaks and valleys) 
 """
 
 import json
@@ -88,6 +88,12 @@ def compare_settings(file_1, file_2, angles):
 
     return comparison_output
 
+def calculate_angular_velocity(angles, frame_rate=30):
+    """
+    Calculate angular velocity for a given angle series.
+    """
+    return np.gradient(angles, 1 / frame_rate)
+
 def plot_cycle_amplitudes(angles1, angles2, peaks1, peaks2, valleys1, valleys2):
     """
     Plot cycle amplitudes for both settings.
@@ -103,53 +109,6 @@ def plot_cycle_amplitudes(angles1, angles2, peaks1, peaks2, valleys1, valleys2):
     plt.xlabel("Cycle Number")
     plt.ylabel("Amplitude (degrees)")
     plt.ylim(60, 100)
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-def plot_cycle_durations(cycle_durations1, cycle_durations2):
-    """
-    Plot cycle durations for both settings.
-    """
-    
-    # Convert to seconds ( / 30 frames)
-    cycle_durations1 = cycle_durations1 / 30
-    cycle_durations2 = cycle_durations2 / 30
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(cycle_durations1, label="Setting 1 (Cycle Duration)", marker="o", linestyle="--", color="blue")
-    plt.plot(cycle_durations2, label="Setting 2 (Cycle Duration)", marker="o", linestyle="-", color="green")
-    plt.title("Cycle Durations Comparison")
-    plt.xlabel("Cycle Number")
-    plt.ylabel("Duration (seconds)")
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-def calculate_angular_velocity(angles, frame_rate=30):
-    """
-    Calculate angular velocity for a given angle series.
-    """
-    return np.gradient(angles, 1 / frame_rate)
-
-def plot_angular_velocity_per_cycle(angles1, angles2, peaks1, peaks2):
-    """
-    Plot angular velocity per cycle for both settings.
-    """
-    # Calculate angular velocities
-    velocity1 = calculate_angular_velocity(angles1)
-    velocity2 = calculate_angular_velocity(angles2)
-
-    # Extract velocities for each cycle
-    cycle_velocity1 = [np.mean(velocity1[peaks1[i]:peaks1[i+1]]) for i in range(len(peaks1) - 1)]
-    cycle_velocity2 = [np.mean(velocity2[peaks2[i]:peaks2[i+1]]) for i in range(len(peaks2) - 1)]
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(cycle_velocity1, label="Setting 1 (Angular Velocity)", marker="o", linestyle="--", color="blue")
-    plt.plot(cycle_velocity2, label="Setting 2 (Angular Velocity)", marker="o", linestyle="-", color="green")
-    plt.title("Angular Velocity Per Cycle Comparison")
-    plt.xlabel("Cycle Number")
-    plt.ylabel("Angular Velocity (degrees/second)")
     plt.legend()
     plt.grid()
     plt.show()
@@ -194,6 +153,100 @@ def plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_in
     plt.title(f"Angle and Angular Velocity for Cycle {cycle_index + 1}")
     plt.show()
 
+# Scatter plot for angle distribution
+def plot_angle_distribution(peaks1, valleys1, peaks2, valleys2, angles1, angles2):
+    """
+    Plot scatter distribution of maximum and minimum angle values and their normal distributions.
+    """
+    from scipy.stats import norm
+
+    # Calculate stats for maxima (peaks)
+    mean_peaks1 = np.mean(angles1[peaks1])
+    std_peaks1 = np.std(angles1[peaks1])
+    mean_peaks2 = np.mean(angles2[peaks2])
+    std_peaks2 = np.std(angles2[peaks2])
+
+    # Scatter plot for maxima (peaks)
+    plt.figure(figsize=(10, 6))
+    plt.hist(angles1[peaks1], bins=30, alpha=0.6, color="red", label="Setting 1 Peaks", density=True)
+    plt.hist(angles2[peaks2], bins=30, alpha=0.6, color="blue", label="Setting 2 Peaks", density=True)
+
+    # Overlay normal distributions
+    x = np.linspace(min(angles1[peaks1].min(), angles2[peaks2].min()),
+                    max(angles1[peaks1].max(), angles2[peaks2].max()), 100)
+    y1 = norm.pdf(x, loc=mean_peaks1, scale=std_peaks1)
+    y2 = norm.pdf(x, loc=mean_peaks2, scale=std_peaks2)
+    plt.plot(x, y1, color="darkred", linestyle="--", label="Setting 1 Fit")
+    plt.plot(x, y2, color="darkblue", linestyle="--", label="Setting 2 Fit")
+
+    plt.title("Angle Distribution of Maxima (Peaks)")
+    plt.xlabel("Angle (degrees)")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    # Calculate stats for minima (valleys)
+    mean_valleys1 = np.mean(angles1[valleys1])
+    std_valleys1 = np.std(angles1[valleys1])
+    mean_valleys2 = np.mean(angles2[valleys2])
+    std_valleys2 = np.std(angles2[valleys2])
+
+    # Scatter plot for minima (valleys)
+    plt.figure(figsize=(10, 6))
+    plt.hist(angles1[valleys1], bins=30, alpha=0.6, color="red", label="Setting 1 Valleys", density=True)
+    plt.hist(angles2[valleys2], bins=30, alpha=0.6, color="blue", label="Setting 2 Valleys", density=True)
+
+    # Overlay normal distributions
+    x = np.linspace(min(angles1[valleys1].min(), angles2[valleys2].min()),
+                    max(angles1[valleys1].max(), angles2[valleys2].max()), 100)
+    y1 = norm.pdf(x, loc=mean_valleys1, scale=std_valleys1)
+    y2 = norm.pdf(x, loc=mean_valleys2, scale=std_valleys2)
+    plt.plot(x, y1, color="darkred", linestyle="--", label="Setting 1 Fit")
+    plt.plot(x, y2, color="darkblue", linestyle="--", label="Setting 2 Fit")
+
+    plt.title("Angle Distribution of Minima (Valleys)")
+    plt.xlabel("Angle (degrees)")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+def plot_polar_angles_with_frames(peaks1, valleys1, peaks2, valleys2, angles1, angles2, title):
+    """
+    Plot angles in polar coordinates using frame indices as the radial coordinate.
+    """
+    
+    # Convert angles to radians for polar plot
+    peaks1_angles = np.deg2rad(angles1[peaks1])
+    valleys1_angles = np.deg2rad(angles1[valleys1])
+    peaks2_angles = np.deg2rad(angles2[peaks2])
+    valleys2_angles = np.deg2rad(angles2[valleys2])
+
+    # Use frame indices as the radial coordinate
+    peaks1_frames = peaks1
+    valleys1_frames = valleys1
+    peaks2_frames = peaks2
+    valleys2_frames = valleys2
+
+    # Polar plot for maxima (peaks)
+    plt.figure(figsize=(8, 8))
+    ax = plt.subplot(111, polar=True)
+    ax.scatter(peaks1_angles, peaks1_frames, color="red", label="Setting 1 Peaks")
+    ax.scatter(peaks2_angles, peaks2_frames, color="blue", label="Setting 2 Peaks")
+    plt.title(f"{title} - Max Angles")
+    plt.legend()
+    plt.show()
+
+    # Polar plot for minima (valleys)
+    plt.figure(figsize=(8, 8))
+    ax = plt.subplot(111, polar=True)
+    ax.scatter(valleys1_angles, valleys1_frames, color="red", label="Setting 1 Valleys")
+    ax.scatter(valleys2_angles, valleys2_frames, color="blue", label="Setting 2 Valleys")
+    plt.title(f"{title} - Min Angles")
+    plt.legend()
+    plt.show()
+
 # Load files
 file_1 = "output/angles.json"
 file_2 = "output/angles_2.json"
@@ -221,7 +274,10 @@ for angle, metrics in comparison_output.items():
 #PLOTS
 stats1, peaks1, valleys1, angles1, cycle_amplitudes1, cycle_durations1 = analyze_knee_angle(file_1, angle="knee_l")
 stats2, peaks2, valleys2, angles2, cycle_amplitudes2, cycle_durations2 = analyze_knee_angle(file_2, angle="knee_l")
-plot_cycle_amplitudes(angles1, angles2, peaks1, peaks2, valleys1, valleys2)
-plot_cycle_durations(cycle_durations1, cycle_durations2)
-plot_angular_velocity_per_cycle(angles1, angles2, peaks1, peaks2)
+
+# plot_cycle_amplitudes(angles1, angles2, peaks1, peaks2, valleys1, valleys2)
 plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_index=75)
+
+# Generate scatter plot for angle distribution
+plot_angle_distribution(peaks1, valleys1, peaks2, valleys2, angles1, angles2)
+plot_polar_angles_with_frames(peaks1, valleys1, peaks2, valleys2, angles1, angles2, "Angles in time")

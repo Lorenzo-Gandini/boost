@@ -119,6 +119,18 @@ def show_points(file, bones_pos, body_edges, colors):
         time.sleep(interval)
     vis.run()
 
+def get_zones(df):
+    """
+    Split the data into three temporal zones:
+    - Zone 2: First 2 minutes (assuming 30 FPS).
+    - Zone 3: Between 2 and 4 minutes.
+    - Zone 5: Last minute of the recording.
+    """
+    fps = 30  # Assuming 30 frames per second
+    zone_2 = df.iloc[:2 * 60 * fps]
+    zone_3 = df.iloc[2 * 60 * fps:4 * 60 * fps]
+    zone_5 = df.iloc[-1 * 60 * fps:]
+    return zone_2, zone_3, zone_5
 
 #--- LEGS ---#
 def calculate_angles(bones_pos):

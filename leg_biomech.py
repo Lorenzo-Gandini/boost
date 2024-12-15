@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
+from scipy.stats import norm
 
 # Function to analyze a single angle
 def analyze_knee_angle(file_path, angle="knee_r"):
@@ -94,24 +95,24 @@ def calculate_angular_velocity(angles, frame_rate=30):
     """
     return np.gradient(angles, 1 / frame_rate)
 
-def plot_cycle_amplitudes(angles1, angles2, peaks1, peaks2, valleys1, valleys2):
+def calculate_distribution(data, indices):
     """
-    Plot cycle amplitudes for both settings.
+    Calcola la distribuzione normale restituisce i parametri necessari per il fit.
     """
-    # Calculate amplitudes for each cycle
-    cycle_amplitudes1 = angles1[peaks1] - angles1[valleys1[:len(peaks1)]]
-    cycle_amplitudes2 = angles2[peaks2] - angles2[valleys2[:len(peaks2)]]
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(cycle_amplitudes1, label="Setting 1 (Amplitude)", marker="o", linestyle="--", color="blue")
-    plt.plot(cycle_amplitudes2, label="Setting 2 (Amplitude)", marker="o", linestyle="-", color="green")
-    plt.title("Cycle Amplitudes Comparison")
-    plt.xlabel("Cycle Number")
-    plt.ylabel("Amplitude (degrees)")
-    plt.ylim(60, 100)
-    plt.legend()
-    plt.grid()
-    plt.show()
+    filtered_data = data[indices]
+    mean = np.mean(filtered_data)
+    std = np.std(filtered_data)
+    
+    # Generazione del range di x per la distribuzione
+    x = np.linspace(filtered_data.min(), filtered_data.max(), 100)
+    y = norm.pdf(x, loc=mean, scale=std)
+    
+    return {
+        "mean": mean,
+        "std": std,
+        "x": x,
+        "y": y
+    }
 
 def plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_index, frame_rate=30):
     """
@@ -153,59 +154,32 @@ def plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_in
     plt.title(f"Angle and Angular Velocity for Cycle {cycle_index + 1}")
     plt.show()
 
-# Scatter plot for angle distribution
-def plot_angle_distribution(peaks1, valleys1, peaks2, valleys2, angles1, angles2):
+def plot_distribution(angles1, angles2, peaks_or_valleys1, peaks_or_valleys2, title, label1, label2):
     """
-    Plot scatter distribution of maximum and minimum angle values and their normal distributions.
+    Plotta l'istogramma dei dati e sovrappone la distribuzione normale. In legebnda media e deviazione standard come voci separate.
     """
-    from scipy.stats import norm
+    # Calcolo delle distribuzioni
+    dist1 = calculate_distribution(angles1, peaks_or_valleys1)
+    dist2 = calculate_distribution(angles2, peaks_or_valleys2)
 
-    # Calculate stats for maxima (peaks)
-    mean_peaks1 = np.mean(angles1[peaks1])
-    std_peaks1 = np.std(angles1[peaks1])
-    mean_peaks2 = np.mean(angles2[peaks2])
-    std_peaks2 = np.std(angles2[peaks2])
+    # Stampa statistiche
+    print(f"{title}:")
+    print(f"  {label1}: mean = {dist1['mean']:.2f}, std = {dist1['std']:.2f}")
+    print(f"  {label2}: mean = {dist2['mean']:.2f}, std = {dist2['std']:.2f}")
 
-    # Scatter plot for maxima (peaks)
     plt.figure(figsize=(10, 6))
-    plt.hist(angles1[peaks1], bins=30, alpha=0.6, color="red", label="Setting 1 Peaks", density=True)
-    plt.hist(angles2[peaks2], bins=30, alpha=0.6, color="blue", label="Setting 2 Peaks", density=True)
+    plt.hist(angles1[peaks_or_valleys1], bins=60, alpha=0.6, color="red", label=label1, density=True)
+    plt.hist(angles2[peaks_or_valleys2], bins=60, alpha=0.6, color="blue", label=label2, density=True)
 
-    # Overlay normal distributions
-    x = np.linspace(min(angles1[peaks1].min(), angles2[peaks2].min()),
-                    max(angles1[peaks1].max(), angles2[peaks2].max()), 100)
-    y1 = norm.pdf(x, loc=mean_peaks1, scale=std_peaks1)
-    y2 = norm.pdf(x, loc=mean_peaks2, scale=std_peaks2)
-    plt.plot(x, y1, color="darkred", linestyle="--", label="Setting 1 Fit")
-    plt.plot(x, y2, color="darkblue", linestyle="--", label="Setting 2 Fit")
+    # Overlay distribuzioni normali
+    plt.plot(dist1["x"], dist1["y"], color="darkred", linestyle="--", label=f"{label1} Fit")
+    plt.plot(dist2["x"], dist2["y"], color="darkblue", linestyle="--", label=f"{label2} Fit")
 
-    plt.title("Angle Distribution of Maxima (Peaks)")
-    plt.xlabel("Angle (degrees)")
-    plt.ylabel("Density")
-    plt.legend()
-    plt.grid()
-    plt.show()
+    # Aggiunta di media e deviazione standard come voci separate
+    plt.plot([], [], ' ', label=f"{label1}: mean = {dist1['mean']:.2f}, std = {dist1['std']:.2f}")
+    plt.plot([], [], ' ', label=f"{label2}: mean = {dist2['mean']:.2f}, std = {dist2['std']:.2f}")
 
-    # Calculate stats for minima (valleys)
-    mean_valleys1 = np.mean(angles1[valleys1])
-    std_valleys1 = np.std(angles1[valleys1])
-    mean_valleys2 = np.mean(angles2[valleys2])
-    std_valleys2 = np.std(angles2[valleys2])
-
-    # Scatter plot for minima (valleys)
-    plt.figure(figsize=(10, 6))
-    plt.hist(angles1[valleys1], bins=30, alpha=0.6, color="red", label="Setting 1 Valleys", density=True)
-    plt.hist(angles2[valleys2], bins=30, alpha=0.6, color="blue", label="Setting 2 Valleys", density=True)
-
-    # Overlay normal distributions
-    x = np.linspace(min(angles1[valleys1].min(), angles2[valleys2].min()),
-                    max(angles1[valleys1].max(), angles2[valleys2].max()), 100)
-    y1 = norm.pdf(x, loc=mean_valleys1, scale=std_valleys1)
-    y2 = norm.pdf(x, loc=mean_valleys2, scale=std_valleys2)
-    plt.plot(x, y1, color="darkred", linestyle="--", label="Setting 1 Fit")
-    plt.plot(x, y2, color="darkblue", linestyle="--", label="Setting 2 Fit")
-
-    plt.title("Angle Distribution of Minima (Valleys)")
+    plt.title(title)
     plt.xlabel("Angle (degrees)")
     plt.ylabel("Density")
     plt.legend()
@@ -275,9 +249,25 @@ for angle, metrics in comparison_output.items():
 stats1, peaks1, valleys1, angles1, cycle_amplitudes1, cycle_durations1 = analyze_knee_angle(file_1, angle="knee_l")
 stats2, peaks2, valleys2, angles2, cycle_amplitudes2, cycle_durations2 = analyze_knee_angle(file_2, angle="knee_l")
 
-# plot_cycle_amplitudes(angles1, angles2, peaks1, peaks2, valleys1, valleys2)
 plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_index=75)
 
 # Generate scatter plot for angle distribution
-plot_angle_distribution(peaks1, valleys1, peaks2, valleys2, angles1, angles2)
+# Plot per i massimi (peaks)
+plot_distribution(
+    angles1, angles2, 
+    peaks1, peaks2, 
+    title="Angle Distribution of Maxima (Peaks)",
+    label1="Setting 1 Peaks",
+    label2="Setting 2 Peaks"
+)
+
+# Plot per i minimi (valleys)
+plot_distribution(
+    angles1, angles2, 
+    valleys1, valleys2, 
+    title="Angle Distribution of Minima (Valleys)",
+    label1="Setting 1 Valleys",
+    label2="Setting 2 Valleys"
+)
+
 plot_polar_angles_with_frames(peaks1, valleys1, peaks2, valleys2, angles1, angles2, "Angles in time")

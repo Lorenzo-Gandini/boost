@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
 import open3d as o3d
+import os
 import time
 import json
+from config import ATHLETE_MOD, ATHLETE_MOD_UC, MOCAP_RECORD
 
 #--- GENERAL OPTIONS ---#
 def get_bones_position(file):
@@ -81,44 +83,6 @@ def interpolate_bones_positions(bones_pos):
 
     return interpolated_bones
 
-def show_points(file, bones_pos, body_edges, colors):
-    """
-    Show the animation of the points coming from the uploaded csv
-    """
-    # Create a point cloud for joints
-    keypoints = o3d.geometry.PointCloud()
-    keypoints.points = o3d.utility.Vector3dVector(bones_pos[0])         # Assign the positions of joints the first frame
-
-    skeleton_joints = o3d.geometry.LineSet()                            # Create a LineSet for skeletal connections
-    skeleton_joints.points = o3d.utility.Vector3dVector(bones_pos[0])   # Assign positions of joints
-    skeleton_joints.lines = o3d.utility.Vector2iVector(body_edges)      # Define the connections between joints
-    skeleton_joints.colors = o3d.utility.Vector3dVector(colors)         # Assign colors to the skeletal connections
-
-    vis = o3d.visualization.Visualizer()    # Initialize the Open3D visualizer
-    vis.create_window()                     # Create the visualization window
-    vis.add_geometry(skeleton_joints)       # Add skeletal connections
-    vis.add_geometry(keypoints)             # Add the point cloud representing joints
-
-    # Settings for the video
-    duration = 15 #seconds
-    frame_rate = file.frame_rate
-    frame_count = int(frame_rate * duration)  
-    interval = 1 / frame_rate  
-
-    for i in range(frame_count):
-        new_joints = bones_pos[i]
-        skeleton_joints.points = o3d.utility.Vector3dVector(new_joints)
-        keypoints.points = o3d.utility.Vector3dVector(new_joints)
-
-        # Update the geometries of the skeleton
-        vis.update_geometry(skeleton_joints)
-        vis.update_geometry(keypoints)
-        vis.update_renderer()
-        vis.poll_events()
-
-        time.sleep(interval)
-    vis.run()
-
 def get_zones(df):
     """
     Split the data into three temporal zones:
@@ -181,7 +145,9 @@ def save_angles(angles):
     """
     Save values into a json
     """
-    filename="output/angles_2.json"
+    output_folder = f"output/LEGS/{ATHLETE_MOD}/json/"
+    filename = f"{output_folder}{ATHLETE_MOD_UC}_angle_{MOCAP_RECORD}.json"
+    os.makedirs(output_folder, exist_ok=True)
     with open(filename, 'w') as f:
         json.dump(angles, f, indent=4)
     print(f"Angoli salvati in: {filename}")
@@ -207,8 +173,9 @@ def save_spine_values(bones_pos):
             "chest": chest
         })
 
-    filename = "output/spine_metrics_2.json"
-
+    output_folder = f"output/LEGS/{ATHLETE_MOD}/json/"
+    filename = f"{output_folder}{ATHLETE_MOD_UC}_spine_metrics_{MOCAP_RECORD}.json"
+    os.makedirs(output_folder, exist_ok=True)
     with open(filename, 'w') as f:
         json.dump(spine_metrics, f, indent=4)
     print(f"Spine metrics saved to: {filename}")
@@ -237,3 +204,91 @@ def load_spine_data(file_path):
         frames.append(frame)
 
     return pd.DataFrame(frames)
+
+#--- ANIMATION ---#
+def show_animation(file, bones_pos, body_edges, colors, points_indices=None):
+    """
+    Show the animation of the stickman. Optionally, highlight trajectories of specific points.
+
+    Parameters:
+        file: Loaded file containing the frame rate.
+        bones_pos: Positions of all bones over time.
+        body_edges: Edges defining the connections between bones.
+        colors: Colors for the edges.
+        points_indices: Optional list of indices of the points whose trajectories should be shown.
+                        If None, no trajectories are shown, only the stickman animation.
+    """
+    # Ensure points_indices is a list if provided
+    if points_indices is not None and isinstance(points_indices, int):
+        points_indices = [points_indices]
+
+    # Create a point cloud for joints
+    keypoints = o3d.geometry.PointCloud()
+    keypoints.points = o3d.utility.Vector3dVector(bones_pos[0])
+
+    # Create a LineSet for skeletal connections
+    skeleton_joints = o3d.geometry.LineSet()
+    skeleton_joints.points = o3d.utility.Vector3dVector(bones_pos[0])
+    skeleton_joints.lines = o3d.utility.Vector2iVector(body_edges)
+    skeleton_joints.colors = o3d.utility.Vector3dVector(colors)
+
+    # Create LineSets for trajectories if points_indices is provided
+    trajectories = {}
+    if points_indices is not None:
+        for idx in points_indices:
+            trajectories[idx] = {
+                "points": [],
+                "lines": [],
+                "geometry": o3d.geometry.LineSet()
+            }
+
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    vis.add_geometry(skeleton_joints)
+    vis.add_geometry(keypoints)
+
+    # Add all trajectories to the visualizer if points_indices is provided
+    if points_indices is not None:
+        for traj in trajectories.values():
+            vis.add_geometry(traj["geometry"])
+
+    # Settings for the animation
+    frame_rate = file.frame_rate
+    num_frames = bones_pos.shape[0]
+    interval = 1 / frame_rate
+
+    for i in range(num_frames):
+        # Update skeleton and keypoints positions
+        new_joints = bones_pos[i]
+        skeleton_joints.points = o3d.utility.Vector3dVector(new_joints)
+        keypoints.points = o3d.utility.Vector3dVector(new_joints)
+
+        # Update trajectories for each point if points_indices is provided
+        if points_indices is not None:
+            for idx in points_indices:
+                trajectories[idx]["points"].append(new_joints[idx])
+                if len(trajectories[idx]["points"]) > 1:
+                    trajectories[idx]["lines"].append([
+                        len(trajectories[idx]["points"]) - 2,
+                        len(trajectories[idx]["points"]) - 1
+                    ])
+
+                trajectory_geometry = trajectories[idx]["geometry"]
+                trajectory_geometry.points = o3d.utility.Vector3dVector(np.array(trajectories[idx]["points"], dtype=np.float64))
+                if trajectories[idx]["lines"]:
+                    trajectory_geometry.lines = o3d.utility.Vector2iVector(np.array(trajectories[idx]["lines"], dtype=np.int32))
+
+        # Update the visualizer
+        vis.update_geometry(skeleton_joints)
+        vis.update_geometry(keypoints)
+        if points_indices is not None:
+            for traj in trajectories.values():
+                vis.update_geometry(traj["geometry"])
+
+        vis.poll_events()
+        vis.update_renderer()
+        time.sleep(interval)
+
+    vis.run()
+
+

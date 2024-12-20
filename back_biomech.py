@@ -9,6 +9,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from utils import load_spine_data, calculate_angle, get_zones
 from scipy.stats import gaussian_kde
+from config import ATHLETE_MOD, ATHLETE_MOD_UC
+import os
 
 #--- FUNCTIONS ---#
 
@@ -54,7 +56,7 @@ def analyze_hip_chest_ground_angle(df):
     """
     Extract angle between spine and ground
     """
-    ground_vector = np.array([0, 1, 0])  # Vettore orizzontale nel piano terreno
+    ground_vector = np.array([0, 0, 1])  
     angles = []
 
     for _, row in df.iterrows():
@@ -131,8 +133,7 @@ def plot_angles_combined(zone2_1, zone3_1, zone5_1, zone2_2, zone3_2, zone5_2, t
         plt.xlim(*xlim)  # Scala uniforme sull'asse X
 
     plt.tight_layout()
-    plt.show()
-
+    # plot.show()
 
 def calculate_ab_oscillation_to_axis_with_stats(df, zone_name):
     """
@@ -219,13 +220,14 @@ def plot_zone_statistics(stats_list, title):
     fig.suptitle(title)
     axes[0].legend(loc='upper left')
     plt.tight_layout()
-    plt.show()
+    # plot.show()
 
 
 #---- PROGRAM ---#
 # Load files
-file_1 = "output/spine_metrics_1.json"
-file_2 = "output/spine_metrics_2.json"
+
+file_1 = f"output/LEGS/{ATHLETE_MOD}/json/{ATHLETE_MOD_UC}_spine_metrics_1.json"
+file_2 = f"output/LEGS/{ATHLETE_MOD}/json/{ATHLETE_MOD_UC}_spine_metrics_2.json"
 
 df_1 = load_spine_data(file_1)
 df_2 = load_spine_data(file_2)
@@ -233,6 +235,9 @@ df_2 = load_spine_data(file_2)
 # Estrazione delle zone
 zone2_1, zone3_1, zone5_1 = get_zones(df_1)
 zone2_2, zone3_2, zone5_2 = get_zones(df_2)
+
+output_folder = f"output/BACK/{ATHLETE_MOD}_2/plots_output"
+os.makedirs(output_folder, exist_ok=True)
 
 # Stomach angles and plot
 stomach_zone2_1, _ = analyze_stomach_angle(zone2_1)
@@ -243,8 +248,12 @@ stomach_zone2_2, _ = analyze_stomach_angle(zone2_2)
 stomach_zone3_2, _ = analyze_stomach_angle(zone3_2)
 stomach_zone5_2, _ = analyze_stomach_angle(zone5_2)
 
-# # Plot combinato
-plot_angles_combined(stomach_zone2_1, stomach_zone3_1, stomach_zone5_1, stomach_zone2_2, stomach_zone3_2, stomach_zone5_2, "Stomach Angle")
+plt.figure(figsize=(18, 12))
+plot_angles_combined(stomach_zone2_1, stomach_zone3_1, stomach_zone5_1,
+                     stomach_zone2_2, stomach_zone3_2, stomach_zone5_2, 
+                     "Stomach Angle")
+plt.savefig(os.path.join(output_folder, f"{ATHLETE_MOD_UC}_stomach_angle.png"))
+plt.close()
 
 # Spine-ground angle and plot
 hip_chest_ground_zone2_1, _ = analyze_hip_chest_ground_angle(zone2_1)
@@ -254,9 +263,13 @@ hip_chest_ground_zone5_1, _ = analyze_hip_chest_ground_angle(zone5_1)
 hip_chest_ground_zone2_2, _ = analyze_hip_chest_ground_angle(zone2_2)
 hip_chest_ground_zone3_2, _ = analyze_hip_chest_ground_angle(zone3_2)
 hip_chest_ground_zone5_2, _ = analyze_hip_chest_ground_angle(zone5_2)
+
+plt.figure(figsize=(18, 12))
 plot_angles_combined(hip_chest_ground_zone2_1, hip_chest_ground_zone3_1, hip_chest_ground_zone5_1,
                      hip_chest_ground_zone2_2, hip_chest_ground_zone3_2, hip_chest_ground_zone5_2,
                      "Hip-Chest Ground Angle")
+plt.savefig(os.path.join(output_folder, f"{ATHLETE_MOD_UC}_hip_chest_ground_angle.png"))
+plt.close()
 
 # Oscillations and plots
 oscillation_data_zone2_1, stats_zone2_1 = calculate_ab_oscillation_to_axis_with_stats(zone2_1, 'Zone 2 - Setting 1')
@@ -267,14 +280,19 @@ oscillation_data_zone2_2, stats_zone2_2 = calculate_ab_oscillation_to_axis_with_
 oscillation_data_zone3_2, stats_zone3_2 = calculate_ab_oscillation_to_axis_with_stats(zone3_2, 'Zone 3 - Setting 2')
 oscillation_data_zone5_2, stats_zone5_2 = calculate_ab_oscillation_to_axis_with_stats(zone5_2, 'Zone 5 - Setting 2')
 
+plt.figure(figsize=(15, 5))
 plot_zone_statistics([stats_zone2_1, stats_zone3_1, stats_zone5_1], "Average Oscillation by Zone - Setting 1")
-plot_zone_statistics([stats_zone2_2, stats_zone3_2, stats_zone5_2], "Average Oscillation by Zone - Setting 2")
+plt.savefig(os.path.join(output_folder, f"{ATHLETE_MOD_UC}_oscillations_setting_1.png"))
+plt.close()
 
+plt.figure(figsize=(15, 5))
+plot_zone_statistics([stats_zone2_2, stats_zone3_2, stats_zone5_2], "Average Oscillation by Zone - Setting 2")
+plt.savefig(os.path.join(output_folder, f"{ATHLETE_MOD_UC}_oscillations_setting_2.png"))
+plt.close()
 
 
 
 # VECCHIO CODICE CHE PUò ESSERE UTILE
-
 # def calculate_ab_statistics(df):
 #     '''
 #     Provides stats and the oscillations about the "ab" (=abdomen) point

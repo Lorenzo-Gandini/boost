@@ -1,8 +1,7 @@
 mediapipe
-ultralytics
 opencv-python
 numpy
 pandas
 trimesh
-pillow
-pandas
+pyglet
+open3d

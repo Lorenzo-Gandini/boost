@@ -8,3 +8,4 @@ ATHLETE_MOD_UC = ATHLETE_MOD.upper()
 LEG = True
 BACK = True
 TRAINING = True
+

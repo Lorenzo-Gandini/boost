@@ -15,12 +15,14 @@ Key Analyses:
 import json
 import numpy as np
 import pandas as pd
+import os
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
-from scipy.stats import norm
+from scipy.stats import gaussian_kde
+from config import ATHLETE_MOD, ATHLETE_MOD_UC
 
 # Function to analyze a single angle
-def analyze_knee_angle(file_path, angle="knee_r"):
+def analyze_knee_angle(file_path, angle="knee_l"):
     """
     Analyze a specific angle from a JSON file.
     """
@@ -97,19 +99,18 @@ def calculate_angular_velocity(angles, frame_rate=30):
 
 def calculate_distribution(data, indices):
     """
-    Calcola la distribuzione normale restituisce i parametri necessari per il fit.
+    Calcola la distribuzione KDE e restituisce i parametri necessari per il fit.
     """
     filtered_data = data[indices]
-    mean = np.mean(filtered_data)
-    std = np.std(filtered_data)
+    kde = gaussian_kde(filtered_data)
     
-    # Generazione del range di x per la distribuzione
-    x = np.linspace(filtered_data.min(), filtered_data.max(), 100)
-    y = norm.pdf(x, loc=mean, scale=std)
+    # Generazione del range di x per la KDE
+    x = np.linspace(filtered_data.min(), filtered_data.max(), 500)
+    y = kde(x)
     
     return {
-        "mean": mean,
-        "std": std,
+        "mean": filtered_data.mean(),
+        "std": filtered_data.std(),
         "x": x,
         "y": y
     }
@@ -152,7 +153,7 @@ def plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_in
 
     # Title and show plot
     plt.title(f"Angle and Angular Velocity for Cycle {cycle_index + 1}")
-    plt.show()
+    # plot.show()()
 
 def plot_distribution(angles1, angles2, peaks_or_valleys1, peaks_or_valleys2, title, label1, label2):
     """
@@ -184,7 +185,7 @@ def plot_distribution(angles1, angles2, peaks_or_valleys1, peaks_or_valleys2, ti
     plt.ylabel("Density")
     plt.legend()
     plt.grid()
-    plt.show()
+    # plot.show()()
 
 def plot_polar_angles_with_frames(peaks1, valleys1, peaks2, valleys2, angles1, angles2, title):
     """
@@ -210,7 +211,7 @@ def plot_polar_angles_with_frames(peaks1, valleys1, peaks2, valleys2, angles1, a
     ax.scatter(peaks2_angles, peaks2_frames, color="blue", label="Setting 2 Peaks")
     plt.title(f"{title} - Max Angles")
     plt.legend()
-    plt.show()
+    # plot.show()()
 
     # Polar plot for minima (valleys)
     plt.figure(figsize=(8, 8))
@@ -219,7 +220,47 @@ def plot_polar_angles_with_frames(peaks1, valleys1, peaks2, valleys2, angles1, a
     ax.scatter(valleys2_angles, valleys2_frames, color="blue", label="Setting 2 Valleys")
     plt.title(f"{title} - Min Angles")
     plt.legend()
-    plt.show()
+    # plot.show()()
+
+def plot_distribution_zones(zones1, zones2, labels, title_prefix):
+    """
+    Plotta le distribuzioni KDE e gli istogrammi per ciascuna zona.
+    """
+    colors = ['blue', 'orange', 'green']
+    xlim = (min([zone.min() for zone in zones1 + zones2]), max([zone.max() for zone in zones1 + zones2]))
+
+    plt.figure(figsize=(18, 12))
+
+    for i, (zone1, zone2, label, color) in enumerate(zip(zones1, zones2, labels, colors)):
+        mean1, std1 = zone1.mean(), zone1.std()
+        mean2, std2 = zone2.mean(), zone2.std()
+
+        plt.subplot(2, 3, i + 1)
+        plt.hist(zone1, bins=60, density=True, alpha=0.5, label=f'{label} - Histogram 1', color=color)
+        kde1 = gaussian_kde(zone1)
+        x = np.linspace(zone1.min(), zone1.max(), 500)
+        plt.plot(x, kde1(x), color=color, linestyle='--', label=f'{label} - KDE 1')
+
+        plt.title(f"{title_prefix} {label} - Setting 1\nMean: {mean1:.2f}, Std: {std1:.2f}")
+        plt.xlabel("Angle (degrees)")
+        plt.ylabel("Density")
+        plt.grid(True)
+        plt.xlim(xlim)
+
+        plt.subplot(2, 3, i + 4)
+        plt.hist(zone2, bins=60, density=True, alpha=0.5, label=f'{label} - Histogram 2', color=color)
+        kde2 = gaussian_kde(zone2)
+        x = np.linspace(zone2.min(), zone2.max(), 500)
+        plt.plot(x, kde2(x), color=color, linestyle='--', label=f'{label} - KDE 2')
+
+        plt.title(f"{title_prefix} {label} - Setting 2\nMean: {mean2:.2f}, Std: {std2:.2f}")
+        plt.xlabel("Angle (degrees)")
+        plt.ylabel("Density")
+        plt.grid(True)
+        plt.xlim(xlim)
+
+    plt.tight_layout()
+    # plot.show()()
 
 # Load files
 file_1 = "output/angles.json"
@@ -237,37 +278,84 @@ df2 = pd.DataFrame(data2)
 # Compare settings
 angles = ["knee_l", "knee_r", "ankle_l", "ankle_r"]
 comparison_output = compare_settings(file_1, file_2, angles)
+output_folder = f"output/LEGS/{ATHLETE_MOD}/plots_output"
+os.makedirs(output_folder, exist_ok=True)
+output_athlete = ATHLETE_MOD_UC
 
-# Print results
-for angle, metrics in comparison_output.items():
-    print(f"{angle}:")
-    for metric, values in metrics.items():
-        print(f"  {metric}: {values}")
-    print()
-
-#PLOTS
 stats1, peaks1, valleys1, angles1, cycle_amplitudes1, cycle_durations1 = analyze_knee_angle(file_1, angle="knee_l")
 stats2, peaks2, valleys2, angles2, cycle_amplitudes2, cycle_durations2 = analyze_knee_angle(file_2, angle="knee_l")
 
-plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_index=75)
+for angle in angles:
+    # Analizza l'angolo per entrambi i file
+    stats1, peaks1, valleys1, angles1, cycle_amplitudes1, cycle_durations1 = analyze_knee_angle(file_1, angle=angle)
+    stats2, peaks2, valleys2, angles2, cycle_amplitudes2, cycle_durations2 = analyze_knee_angle(file_2, angle=angle)
 
-# Generate scatter plot for angle distribution
-# Plot per i massimi (peaks)
-plot_distribution(
-    angles1, angles2, 
-    peaks1, peaks2, 
-    title="Angle Distribution of Maxima (Peaks)",
-    label1="Setting 1 Peaks",
-    label2="Setting 2 Peaks"
-)
+    # # Genera i plot per massimi
+    # plot_title = f"Angle Distribution of Maxima (Peaks) - {angle.upper()}"
+    # plt.figure(figsize=(10, 6))
+    # plot_distribution(
+    #     angles1, angles2, 
+    #     peaks1, peaks2, 
+    #     title=plot_title,
+    #     label1="Before Peaks",
+    #     label2="After Peaks"
+    # )
+    # plt.savefig(os.path.join(output_folder, f"{output_athlete}_{angle}_peaks_distribution.png"))
+    # plt.close()
 
-# Plot per i minimi (valleys)
-plot_distribution(
-    angles1, angles2, 
-    valleys1, valleys2, 
-    title="Angle Distribution of Minima (Valleys)",
-    label1="Setting 1 Valleys",
-    label2="Setting 2 Valleys"
-)
+    # # Genera i plot per minimi
+    # plot_title = f"Angle Distribution of Minima (Valleys) - {angle.upper()}"
+    # plt.figure(figsize=(10, 6))
+    # plot_distribution(
+    #     angles1, angles2, 
+    #     valleys1, valleys2, 
+    #     title=plot_title,
+    #     label1="Before Valleys",
+    #     label2="After Valleys"
+    # )
+    # plt.savefig(os.path.join(output_folder, f"{output_athlete}_{angle}_valleys_distribution.png"))
+    # plt.close()
 
-plot_polar_angles_with_frames(peaks1, valleys1, peaks2, valleys2, angles1, angles2, "Angles in time")
+    # # Plot angolo e velocità angolare per un ciclo specifico
+    # cycle_index = 0  # Usa il primo ciclo per esempio
+    # plt.figure(figsize=(12, 6))
+    # plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_index=cycle_index)
+    # plt.savefig(os.path.join(output_folder, f"{output_athlete}_{angle}_cycle_{cycle_index}_angles_velocity.png"))
+    # plt.close()
+    
+print(f"Tutti i plot sono stati salvati nella cartella: {output_folder}")
+
+#___________________VECCHIO CODICE CHE PUò ESSERE UTILE ____________#
+# # Print results
+# for angle, metrics in comparison_output.items():
+#     print(f"{angle}:")
+#     for metric, values in metrics.items():
+#         print(f"  {metric}: {values}")
+#     print()
+
+# #PLOTS
+# stats1, peaks1, valleys1, angles1, cycle_amplitudes1, cycle_durations1 = analyze_knee_angle(file_1, angle="knee_l")
+# stats2, peaks2, valleys2, angles2, cycle_amplitudes2, cycle_durations2 = analyze_knee_angle(file_2, angle="knee_l")
+
+# plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_index=75)
+
+# # Generate scatter plot for angle distribution
+# # Plot per i massimi (peaks)
+# plot_distribution(
+#     angles1, angles2, 
+#     peaks1, peaks2, 
+#     title="Angle Distribution of Maxima (Peaks)",
+#     label1="Setting 1 Peaks",
+#     label2="Setting 2 Peaks"
+# )
+
+# # Plot per i minimi (valleys)
+# plot_distribution(
+#     angles1, angles2, 
+#     valleys1, valleys2, 
+#     title="Angle Distribution of Minima (Valleys)",
+#     label1="Setting 1 Valleys",
+#     label2="Setting 2 Valleys"
+# )
+
+# plot_polar_angles_with_frames(peaks1, valleys1, peaks2, valleys2, angles1, angles2, "Angles in time")

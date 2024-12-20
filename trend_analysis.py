@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import io
 from datetime import datetime
+from config import ATHLETE, ATHLETE_MOD_UC
 
 # Define folder path
-athlete_name = "Masutti Erik"
-folder_path = f"training_data/{athlete_name}"
+folder_path = f"training_data/{ATHLETE}"
 
 # Regex to extract training type and date
-file_pattern = re.compile(rf"{re.escape(athlete_name)} - (.*?) - (\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}-\d{{2}})\.csv")
+file_pattern = re.compile(rf"{re.escape(ATHLETE)} - (.*?) - (\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}-\d{{2}})\.csv")
 
 # List of files to process
 files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
@@ -34,6 +34,7 @@ results = []
 # Process each file
 for file, training_date in selected_files:
     file_path = os.path.join(folder_path, file)
+    print(file_path)
     with open(file_path, 'r', encoding='utf-16') as f:
         lines = [line.rstrip(';\n') for line in f]
 
@@ -115,8 +116,9 @@ for result in results:
 summary_df = pd.DataFrame(summary_data)
 
 # Save the summary to a CSV file
-summary_df.to_csv("output/training_analysis_summary.csv", index=False)
-print("Il riepilogo è stato salvato come 'training_analysis_summary.csv'.")
+file_name = f"{ATHLETE_MOD_UC}_training_analysis_summary.csv"
+summary_df.to_csv(f"output/{file_name}", index=False)
+print(f"Il riepilogo è stato salvato come {file_name}.")
 
 
 # Plot the results
@@ -126,7 +128,7 @@ for metric in metrics_to_plot:
 
     plt.figure(figsize=(10, 6))
     plt.plot(metric_data['Date'], metric_data['Max'], label='Max', marker='o', linestyle='-')
-    plt.plot(metric_data['Date'], metric_data['Min'], label='Min', marker='o', linestyle='-')
+    # plt.plot(metric_data['Date'], metric_data['Min'], label='Min', marker='o', linestyle='-')
     plt.plot(metric_data['Date'], metric_data['Mean'], label='Mean', marker='o', linestyle='-')
     
     plt.title(f"Trend of {metric} over time")

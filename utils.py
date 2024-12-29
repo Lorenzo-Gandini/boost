@@ -4,7 +4,61 @@ import open3d as o3d
 import os
 import time
 import json
-from config import ATHLETE_MOD, ATHLETE_MOD_UC, MOCAP_RECORD
+import optitrack.csv_reader as csv
+from optitrack.geometry import *
+
+from scipy.stats import gaussian_kde
+import matplotlib.pyplot as plt
+
+#-----MAIN----
+def ask_athlete(prompt):
+    folder_path = "training_data/"
+    athletes = [f for f in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))]
+    
+    print(prompt)
+    for index, athlete in enumerate(athletes, start=1):
+        print(f"{index}. {athlete}")
+
+    while True:
+        try:
+            choice = int(input("Choose an athlete to analyze : "))
+            if 1 <= choice <= len(athletes):
+                selected_athlete = athletes[choice - 1]
+                return selected_athlete
+            else:
+                raise ValueError
+            
+        except ValueError:
+            print("Invalid user response")
+
+def ask_option(prompt, reminder='Please try again!'):
+    options = {
+        '1': 1, 'spine': 1, 'SPINE': 1, 'Spine': 1,
+        '2': 2, 'leg': 2, 'LEG': 2, 'Leg': 2,
+        '3': 3, 'ankle': 3, 'ANKLE': 3, 'Ankle': 3,
+        '4': 4, 'training': 4, 'TRAINING': 4, 'Training': 4,
+        '5': 5, 'all': 5, 'ALL': 5, 'All': 5
+    }
+    
+    while True:
+        reply = input(prompt).strip()
+        if reply in options:
+            return options[reply]
+        print(reminder)
+
+def ask_yesno(prompt):
+    valid_yes = {'y', 'Y', 'yes', 'YES', 'Yes'}
+    valid_no = {'n', 'N', 'no', 'NO', 'No'}
+    
+    while True:
+        option = input(prompt).strip()
+        if option in valid_yes:
+            return True
+        elif option in valid_no:
+            return False
+        else:
+            print("Invalid user response. Please say 'yes' or 'no'.")
+
 
 #--- GENERAL OPTIONS ---#
 def get_bones_position(file):
@@ -140,19 +194,130 @@ def calculate_angle(v1, v2):
     angle_deg = np.degrees(angle_rad)
     
     return angle_deg
-    
-def save_angles(angles):
-    """
-    Save values into a json
-    """
-    output_folder = f"output/LEGS/{ATHLETE_MOD}/json/"
-    filename = f"{output_folder}{ATHLETE_MOD_UC}_angle_{MOCAP_RECORD}.json"
-    os.makedirs(output_folder, exist_ok=True)
-    with open(filename, 'w') as f:
-        json.dump(angles, f, indent=4)
-    print(f"Angoli salvati in: {filename}")
 
 #--- SPINE BACK ---#
+
+def analyze_angle(df, point1_start, point1_end, point2_start, point2_end, angle_name):
+    """
+    Extract the angle between two given vectors.
+    """
+    angles = []
+
+    for _, row in df.iterrows():
+        start1 = np.array([row[f'{point1_start}_x'], row[f'{point1_start}_y'], row[f'{point1_start}_z']])
+        end1 = np.array([row[f'{point1_end}_x'], row[f'{point1_end}_y'], row[f'{point1_end}_z']])
+        start2 = np.array([row[f'{point2_start}_x'], row[f'{point2_start}_y'], row[f'{point2_start}_z']])
+        end2 = np.array([row[f'{point2_end}_x'], row[f'{point2_end}_y'], row[f'{point2_end}_z']])
+
+        vec1 = end1 - start1
+        vec2 = end2 - start2
+
+        if np.linalg.norm(vec1) > 0 and np.linalg.norm(vec2) > 0:
+            angle = 180 - calculate_angle(vec1, vec2)  # Complementary angle
+            angles.append(angle)
+        else:
+            angles.append(None)
+
+    angles = pd.Series(angles, name=angle_name)
+
+    stats = {
+        'mean_angle': angles.mean(),
+        'std_angle': angles.std(),
+        'max_angle': angles.max(),
+        'min_angle': angles.min()
+    }
+
+    return angles, stats
+
+def analyze_angle_from_points(bones_pos, point1_start_idx, point1_end_idx, point2_start_idx, point2_end_idx):
+    """
+    Extract the angle between two given vectors directly from bones_pos data.
+    """
+    angles = []
+    ground_vector = np.array([0, 0, 1])  # Static ground vector for 'ground'
+
+    for frame in bones_pos:
+        start1 = np.array(frame[point1_start_idx])
+        end1 = np.array(frame[point1_end_idx])
+
+        if point2_start_idx == 'ground' or point2_end_idx == 'ground':
+            vec1 = end1 - start1
+            vec2 = ground_vector
+        else:
+            start2 = np.array(frame[point2_start_idx])
+            end2 = np.array(frame[point2_end_idx])
+            vec1 = end2 - start2
+            vec2 = end1 - start1
+
+        if np.linalg.norm(vec1) > 0 and np.linalg.norm(vec2) > 0:
+            angle = 180 - calculate_angle(vec1, vec2)  # Complementary angle
+            angles.append(angle)
+        else:
+            angles.append(None)
+
+    angles = pd.Series(angles, name="Angle")
+
+    stats = {
+        'mean_angle': angles.mean(),
+        'std_angle': angles.std(),
+        'max_angle': angles.max(),
+        'min_angle': angles.min()
+    }
+
+    return angles, stats
+
+def plot_angles_combined(zones_1, zones_2, labels, title_prefix, output_file, show_plots):
+    """
+    Plot 2x3 histograms and KDE for two settings and multiple zones.
+    """
+    colors = ['blue', 'orange', 'green']
+    all_data = pd.concat(zones_1 + zones_2)
+    xlim = (all_data.min(), all_data.max())
+
+    plt.figure(figsize=(18, 12))
+
+    for i, (zone, label, color) in enumerate(zip(zones_1, labels, colors), 1):
+        mean_angle = zone.mean()
+        std_angle = zone.std()
+
+        plt.subplot(2, 3, i)
+        plt.hist(zone, bins=30, density=True, alpha=0.5, label=f'{label} - Histogram', color=color)
+
+        kde = gaussian_kde(zone)
+        x = np.linspace(zone.min(), zone.max(), 500)
+        plt.plot(x, kde(x), color=color, linestyle='--', label=f'{label} - KDE')
+
+        plt.title(f"{title_prefix} {label} - Setting 1\nMean: {mean_angle:.2f}, Std: {std_angle:.2f}")
+        plt.xlabel('Angle (degrees)')
+        plt.ylabel('Density')
+        plt.grid(True)
+        plt.ylim(0, 1.5)
+        plt.xlim(*xlim)
+
+    for i, (zone, label, color) in enumerate(zip(zones_2, labels, colors), 4):
+        mean_angle = zone.mean()
+        std_angle = zone.std()
+
+        plt.subplot(2, 3, i)
+        plt.hist(zone, bins=30, density=True, alpha=0.5, label=f'{label} - Histogram', color=color)
+
+        kde = gaussian_kde(zone)
+        x = np.linspace(zone.min(), zone.max(), 500)
+        plt.plot(x, kde(x), color=color, linestyle='--', label=f'{label} - KDE')
+
+        plt.title(f"{title_prefix} {label} - Setting 2\nMean: {mean_angle:.2f}, Std: {std_angle:.2f}")
+        plt.xlabel('Angle (degrees)')
+        plt.ylabel('Density')
+        plt.grid(True)
+        plt.ylim(0, 1.5)
+        plt.xlim(*xlim)
+
+    plt.tight_layout()
+    plt.savefig(output_file)
+    if show_plots:
+        plt.show()
+    plt.close()
+
 def save_spine_values(bones_pos):
     """
     Extract metrics for the spine and save the json
@@ -173,8 +338,8 @@ def save_spine_values(bones_pos):
             "chest": chest
         })
 
-    output_folder = f"output/LEGS/{ATHLETE_MOD}/json/"
-    filename = f"{output_folder}{ATHLETE_MOD_UC}_spine_metrics_{MOCAP_RECORD}.json"
+    output_folder = f"output/LEGS/Gandini Lorenzo/json/"
+    filename = f"{output_folder}Gandini Lorenzo_spine_metrics_3.json"
     os.makedirs(output_folder, exist_ok=True)
     with open(filename, 'w') as f:
         json.dump(spine_metrics, f, indent=4)
@@ -205,7 +370,112 @@ def load_spine_data(file_path):
 
     return pd.DataFrame(frames)
 
-#--- ANIMATION ---#
+
+def calculate_oscillations(bones_pos, zones=None):
+    """
+    Calcola le oscillazioni del punto 'ab' rispetto all'asse hip-chest.
+    Ritorna:
+    - Le oscillazioni nel tempo centrate rispetto alla media dell'asse hip-chest.
+    - Le statistiche globali e per ciascuna zona, se specificata.
+    """
+    hip_idx = 0  # Indice per il punto Hip
+    chest_idx = 2  # Indice per il punto Chest
+    ab_idx = 1  # Indice per il punto Abdomen (Ab)
+
+    # Calcolo dell'asse medio hip-chest
+    hip_chest_vectors = bones_pos[:, chest_idx] - bones_pos[:, hip_idx]  # Vettori hip -> chest
+    hip_chest_mean = hip_chest_vectors.mean(axis=0)  # Media su tutti i frame
+    hip_chest_mean_unit = hip_chest_mean / np.linalg.norm(hip_chest_mean)  # Normalizzazione a vettore unitario
+
+    # Calcolo delle oscillazioni
+    oscillations = []
+    for frame in bones_pos:
+        hip = frame[hip_idx]
+        chest = frame[chest_idx]
+        ab = frame[ab_idx]
+
+        # Vettore hip-ab
+        hip_ab = ab - hip
+
+        # Proiezione di hip-ab sul vettore medio hip-chest
+        projection_length = np.dot(hip_ab, hip_chest_mean_unit)
+        projection = projection_length * hip_chest_mean_unit
+
+        # Deviazione perpendicolare
+        deviation = hip_ab - projection
+
+        # Direzione ortogonale rispetto all'asse hip-chest (vista dall'alto)
+        ortho_vector = np.cross(hip_chest_mean_unit, [0, 0, 1])  # Cross product con z-axis
+        ortho_vector_unit = ortho_vector / np.linalg.norm(ortho_vector)
+
+        # Proiezione della deviazione sull'asse ortogonale
+        deviation_magnitude = np.dot(deviation, ortho_vector_unit)
+
+        # Salva il valore della deviazione nel tempo
+        oscillations.append(deviation_magnitude)
+
+    # Centralizza le oscillazioni rispetto al valore medio
+    oscillations = np.array(oscillations)
+    oscillations_centered = oscillations - oscillations.mean()
+
+    # Calcola statistiche globali
+    global_stats = {
+        "mean": float(oscillations_centered.mean()),
+        "std_dev": float(oscillations_centered.std()),
+        "mean_left": float(oscillations_centered[oscillations_centered > 0].mean()),
+        "mean_right": float(oscillations_centered[oscillations_centered < 0].mean())
+    }
+
+    # Calcola statistiche per ciascuna zona
+    zone_names = ["Zone 2", "Zone 3", "Zone 5"]
+    zone_stats = []
+    if zones:
+        for i, zone in enumerate(zones):
+            zone_oscillations = oscillations_centered[zone.index]
+            zone_stats.append({
+                "zone": zone_names[i],
+                "mean": float(zone_oscillations.mean()),
+                "std_dev": float(zone_oscillations.std()),
+                "mean_left": float(zone_oscillations[zone_oscillations > 0].mean()),
+                "mean_right": float(zone_oscillations[zone_oscillations < 0].mean())
+            })
+
+    return oscillations_centered, {"global": global_stats, "zones": zone_stats}
+
+
+def plot_oscillations(data1, data2, title, save_path, show_plots):
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharey=True)
+    fig.suptitle(title)
+
+    # Define temporal zones
+    zone_limits = [0, 2 * 60 * 30, 4 * 60 * 30, len(data1)]  # Frames: 0, 2 min, 4 min, end (assuming 30 FPS)
+    zone_colors = ['lightgreen', 'lightblue', 'lightcoral']  # Colors for the zones
+
+    # Plot for Setting 1
+    for zone_start, zone_end, color in zip(zone_limits[:-1], zone_limits[1:], zone_colors):
+        ax1.axvspan(zone_start, zone_end, color=color, alpha=0.3)  # Highlight zones
+    ax1.plot(data1, label="Setting 1", color='blue')
+    ax1.set_title("Setting 1")
+    ax1.set_ylim(-10, 10)  # Set Y-axis range
+    ax1.axhline(0, color='black', linestyle='--')  # Reference line
+    ax1.legend()
+
+    # Plot for Setting 2
+    for zone_start, zone_end, color in zip(zone_limits[:-1], zone_limits[1:], zone_colors):
+        ax2.axvspan(zone_start, zone_end, color=color, alpha=0.3)  # Highlight zones
+    ax2.plot(data2, label="Setting 2", color='orange')
+    ax2.set_title("Setting 2")
+    ax2.set_ylim(-10, 10)  # Set Y-axis range
+    ax2.axhline(0, color='black', linestyle='--')  # Reference line
+    ax2.legend()
+
+    # Save and show
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.savefig(save_path)
+    if show_plots:
+        plt.show()
+    plt.close()
+
 def show_animation(file, bones_pos, body_edges, colors, points_indices=None):
     """
     Show the animation of the stickman. Optionally, highlight trajectories of specific points.
@@ -290,5 +560,3 @@ def show_animation(file, bones_pos, body_edges, colors, points_indices=None):
         time.sleep(interval)
 
     vis.run()
-
-

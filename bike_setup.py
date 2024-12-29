@@ -1,5 +1,3 @@
-import math
-
 # Source : https://www.bikeitalia.it/calcolare-le-misure-della-bicicletta/
 # Formule di Bernard Hinault
 

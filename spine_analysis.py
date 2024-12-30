@@ -112,6 +112,6 @@ def run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     }
 
 
-    output_file = os.path.join(output_folder, f"stats/{athlete_mod_uc}_analysis_results.json")
+    output_file = os.path.join(output_folder, f"stats/{athlete_mod_uc}_spine_analysis_stats.json")
     with open(output_file, "w") as f:
         json.dump(results, f, indent=4)

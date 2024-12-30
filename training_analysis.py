@@ -1,5 +1,6 @@
 import re
 import os
+import json
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -56,7 +57,7 @@ def analyze_data(data):
                 }
     return metrics
 
-def save_summary(results, athlete, athlete_mod_uc):
+def summary_data(results):
     summary_data = []
     for result in results:
         file_date = result['date']
@@ -70,18 +71,39 @@ def save_summary(results, athlete, athlete_mod_uc):
                 'Mean': values['mean']
             })
     summary_df = pd.DataFrame(summary_data)
-    file_name = f"{athlete_mod_uc}_training_summary.csv"
-    summary_df.to_csv(f"output/{athlete}/stats/{file_name}", index=False)
-    print(f"Il riepilogo è stato salvato come {file_name}.")
     return summary_df
 
+def save_summary_json(data, athlete, athlete_mod_uc):
+    json_data = []
+    for result in data:
+        file_date = result['date']
+        for metric, values in result['metrics'].items():
+            json_data.append({
+                'File': str(result['file']),
+                'Date': str(file_date),  # Convert date to string for JSON compatibility
+                'Metric': metric,
+                'Max': float(values['max']),
+                'Min': float(values['min']),
+                'Mean': float(values['mean'])
+            })
+
+    json_file_path = f"output/{athlete}/stats/{athlete_mod_uc}_training_summary.json"
+    os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
+    with open(json_file_path, 'w', encoding='utf-8') as json_file:
+        json.dump(json_data, json_file, indent=4)
+    print(f"Il riepilogo è stato salvato come JSON in {json_file_path}.")
+
+
 def plot_results(summary_df, athlete, athlete_mod_uc, show_plots):
-    metrics_to_plot = ['Potenza (watt)', 'Velocita (km/h)', 'Frequenza Cardiaca (bpm)']
-    
+    metrics_to_plot = ['Potenza (watt)', 'Velocità (km/h)', 'Frequenza Cardiaca (bpm)']
     for metric in metrics_to_plot:
-        metric_name = re.sub(r'\s*\(.*?\)', '', metric)
-        output_file = os.path.join(f"output/{athlete}/plots/", f"{athlete_mod_uc}_training_{metric_name}.png")
+        metric_name = re.sub(r'\s*\(.*?\)', '', metric)    
+        output_folder = f"output/{athlete}/plots/"
+        os.makedirs(output_folder, exist_ok=True)
+        output_file = os.path.join(output_folder, f"{athlete_mod_uc}_training_{metric_name}.png")
+        
         metric_data = summary_df[summary_df['Metric'] == metric]
+        
         plt.figure(figsize=(10, 6))
         plt.plot(metric_data['Date'], metric_data['Max'], label='Max', marker='o', linestyle='-')
         plt.plot(metric_data['Date'], metric_data['Mean'], label='Mean', marker='o', linestyle='-')
@@ -109,7 +131,6 @@ def run_training_analysis(athlete, athlete_mod_uc, show_plots):
     results = []
     for file, training_date in selected_files:
         file_path = os.path.join(folder_path, file)
-        print(file_path)
         data = process_file(file_path)
         metrics = analyze_data(data)
         results.append({
@@ -117,5 +138,6 @@ def run_training_analysis(athlete, athlete_mod_uc, show_plots):
             'date': training_date,
             'metrics': metrics
         })
-    summary_df = save_summary(results, athlete, athlete_mod_uc)
+    summary_df = summary_data(results)
+    save_summary_json(results, athlete, athlete_mod_uc)
     plot_results(summary_df, athlete, athlete_mod_uc, show_plots)

@@ -31,9 +31,11 @@ def run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     body_edges_1, bones_pos_1, _ = get_bones_position(take_1)
     body_edges_2, bones_pos_2, _ = get_bones_position(take_2)
 
-    # Output folder
-    output_folder = f"output/{athlete}/"
-    os.makedirs(output_folder, exist_ok=True)
+    output_folder_plot = f"output/{athlete}/plots/"
+    output_folder_stats = f"output/{athlete}/stats/"
+    os.makedirs(output_folder_plot, exist_ok=True)
+    os.makedirs(output_folder_stats, exist_ok=True)
+
 
     # Split data into zones
     zones_setting_1 = get_zones(pd.DataFrame(bones_pos_1.reshape(bones_pos_1.shape[0], -1)))
@@ -50,7 +52,7 @@ def run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     plot_angles_combined(
         stomach_angles_1_series, stomach_angles_2_series,
         ["Zone 2", "Zone 3", "Zone 5"], "Stomach Angle Analysis",
-        os.path.join(output_folder, f"plots/{athlete_mod_uc}_stomach_angle.png"),
+        os.path.join(output_folder_plot, f"{athlete_mod_uc}_stomach_angle.png"),
         show_plots
     )
 
@@ -66,7 +68,7 @@ def run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     plot_angles_combined(
         spine_angles_1_series, spine_angles_2_series,
         ["Zone 2", "Zone 3", "Zone 5"], "Spine Ground Angle Analysis",
-        os.path.join(output_folder, f"plots/{athlete_mod_uc}_spine_ground_angle.png"),
+        os.path.join(output_folder_plot, f"{athlete_mod_uc}_spine_ground_angle.png"),
         show_plots
     )
 
@@ -78,7 +80,7 @@ def run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     plot_oscillations(
         all_oscillations_1, all_oscillations_2,
         "Combined Oscillations Analysis",
-        os.path.join(output_folder, f"plots/{athlete_mod_uc}_oscillations_analysis_combined.png"), 
+        os.path.join(output_folder_plot, f"{athlete_mod_uc}_oscillations_analysis_combined.png"), 
         show_plots
     )
 
@@ -112,6 +114,6 @@ def run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     }
 
 
-    output_file = os.path.join(output_folder, f"stats/{athlete_mod_uc}_spine_analysis_stats.json")
+    output_file = os.path.join(output_folder_stats, f"{athlete_mod_uc}_spine_analysis_stats.json")
     with open(output_file, "w") as f:
         json.dump(results, f, indent=4)

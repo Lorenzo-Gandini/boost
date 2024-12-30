@@ -1,41 +1,46 @@
 import os
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 import json
 
-def generate_pdf(json_list, description, output_filename):
-    c = canvas.Canvas(output_filename, pagesize=letter)
-    width, height = letter
+def load_json_files(folder_path):
+    json_list = []
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.json'):
+            file_path = os.path.join(folder_path, filename)
+            with open(file_path, 'r') as f:
+                json_list.append(json.load(f))
+    return json_list
 
-    # Add description text
-    c.setFont("Helvetica", 12)
-    c.drawString(100, height - 50, description)
+def generate_pdf(json_list, description, output_filename):
+    doc = SimpleDocTemplate(output_filename, pagesize=letter)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Add description
+    elements.append(Paragraph(description, styles['Title']))
+    elements.append(Spacer(1, 12))
 
     # Add JSON content
-    y_position = height - 100
     for json_obj in json_list:
         json_str = json.dumps(json_obj, indent=4)
-        for line in json_str.split('\n'):
-            if y_position < 50:
-                c.showPage()
-                y_position = height - 50
-                c.setFont("Helvetica", 12)
-            c.drawString(100, y_position, line)
-            y_position -= 15
+        elements.append(Paragraph(json_str, styles['BodyText']))
+        elements.append(Spacer(1, 12))
 
-    c.save()
+    doc.build(elements)
+
 
 def generate_report(athlete):
-    # Example usage
-    json_list = [
-        {"name": "John Doe", "age": 30, "city": "New York"},
-        {"name": "Jane Smith", "age": 25, "city": "Los Angeles"}
-    ]
-    description = "This PDF contains a list of JSON objects with user information."
+    folder_path = f"output/{athlete}/stats/"
+    json_list = load_json_files(folder_path)
+    description = f"This PDF contains a list of JSON objects with statistics for athlete {athlete}."
+    output_filename = f"output/{athlete}/stats_report.pdf"
     
-    # Build the output folder and file path
-    output_folder = os.path.join("output", athlete)
-    os.makedirs(output_folder, exist_ok=True)  # Create the folder if it doesn't exist
-    output_filename = os.path.join(output_folder, "report.pdf")
-
+    # Ensure the output directory exists
+    os.makedirs(os.path.dirname(output_filename), exist_ok=True)
+    
     generate_pdf(json_list, description, output_filename)
+    print(f"Report generated successfully: {output_filename}")

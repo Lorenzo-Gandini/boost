@@ -61,6 +61,8 @@ def summary_data(results):
     summary_data = []
     for result in results:
         file_date = result['date']
+        
+        # Itera sulle metriche standard
         for metric, values in result['metrics'].items():
             summary_data.append({
                 'File': result['file'],
@@ -69,6 +71,17 @@ def summary_data(results):
                 'Max': values['max'],
                 'Min': values['min'],
                 'Mean': values['mean']
+            })
+        
+        # Aggiungi "VO2" come metrica separata, se presente
+        if result['avg_vo2'] is not None and result['max_vo2'] is not None:
+            summary_data.append({
+                'File': result['file'],
+                'Date': file_date,
+                'Metric': 'VO2',
+                'Max': result['max_vo2'],
+                'Min': np.nan,  # Nessun valore "min" per VO2
+                'Mean': result['avg_vo2']
             })
     summary_df = pd.DataFrame(summary_data)
     return summary_df
@@ -80,11 +93,22 @@ def save_summary_json(data, athlete, athlete_mod_uc):
         for metric, values in result['metrics'].items():
             json_data.append({
                 'File': str(result['file']),
-                'Date': str(file_date),  # Convert date to string for JSON compatibility
+                'Date': str(file_date),
                 'Metric': metric,
                 'Max': float(values['max']),
                 'Min': float(values['min']),
                 'Mean': float(values['mean'])
+            })
+        
+        # Aggiungi "VO2" come metrica separata, se presente
+        if result['avg_vo2'] is not None and result['max_vo2'] is not None:
+            json_data.append({
+                'File': str(result['file']),
+                'Date': str(file_date),
+                'Metric': 'VO2',
+                'Max': float(result['max_vo2']),
+                'Min': None,  # Nessun valore "min" per VO2
+                'Mean': float(result['avg_vo2'])
             })
 
     json_file_path = f"output/{athlete}/stats/{athlete_mod_uc}_training_summary.json"
@@ -93,9 +117,8 @@ def save_summary_json(data, athlete, athlete_mod_uc):
         json.dump(json_data, json_file, indent=4)
     print(f"Il riepilogo è stato salvato come JSON in {json_file_path}.")
 
-
 def plot_results(summary_df, athlete, athlete_mod_uc, show_plots):
-    metrics_to_plot = ['Potenza (watt)', 'Velocità (km/h)', 'Frequenza Cardiaca (bpm)']
+    metrics_to_plot = ['Potenza (watt)', 'Velocità (km/h)', 'Frequenza Cardiaca (bpm)', 'VO2']
     for metric in metrics_to_plot:
         metric_name = re.sub(r'\s*\(.*?\)', '', metric)    
         output_folder = f"output/{athlete}/plots/"
@@ -103,7 +126,6 @@ def plot_results(summary_df, athlete, athlete_mod_uc, show_plots):
         output_file = os.path.join(output_folder, f"{athlete_mod_uc}_training_{metric_name}.png")
         
         metric_data = summary_df[summary_df['Metric'] == metric]
-        
         plt.figure(figsize=(10, 6))
         plt.plot(metric_data['Date'], metric_data['Max'], label='Max', marker='o', linestyle='-')
         plt.plot(metric_data['Date'], metric_data['Mean'], label='Mean', marker='o', linestyle='-')
@@ -112,31 +134,62 @@ def plot_results(summary_df, athlete, athlete_mod_uc, show_plots):
         plt.ylabel(metric)
         plt.legend()
         plt.grid()
+        
         ax = plt.gca()
         ax.xaxis.set_major_locator(mdates.DayLocator())
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         ax.set_xticks(metric_data['Date'])
         plt.xticks(rotation=45)
         plt.tight_layout()
-        # Save and optionally show the plot
-
         plt.savefig(output_file)
         if show_plots:
             plt.show()
         plt.close()
 
+def get_vo2_data(file_path, athlete, training_date):
+    cognome, nome = athlete.split()
+    vo2_df = pd.read_csv(file_path, parse_dates=['Data'], dayfirst=True)
+    
+    athlete_vo2 = vo2_df[(vo2_df['Nome'] == nome) & (vo2_df['Cognome'] == cognome)]
+
+    if athlete_vo2.empty:
+        print(f"No VO2 data found for {nome} {cognome}.")
+        return None, None  # Nessun dato VO2 trovato per l'atleta
+
+    # Converti in formato anno-mese-giorno
+    # Fai una copia per evitare il warning
+    athlete_vo2 = athlete_vo2.copy()
+
+    # Ora è sicuro aggiungere nuove colonne o modificare esistenti
+    athlete_vo2['Data_Date'] = athlete_vo2['Data'].dt.date
+    training_date_date = training_date.date()
+
+    # Calcola la differenza in giorni
+    athlete_vo2['Date_Diff'] = (athlete_vo2['Data_Date'] - training_date_date).abs()
+    closest_row = athlete_vo2.loc[athlete_vo2['Date_Diff'].idxmin()]
+
+
+    avg_vo2 = closest_row['AVG_VO2']
+    max_vo2 = closest_row['MAX_VO2']
+    
+    return avg_vo2, max_vo2
+
 def run_training_analysis(athlete, athlete_mod_uc, show_plots):
     folder_path = f"training_data/{athlete}"
+    vo2_file = "training_data/VO2_summary.csv"
     selected_files = load_files(folder_path, athlete)
     results = []
     for file, training_date in selected_files:
         file_path = os.path.join(folder_path, file)
+        avg_vo2, max_vo2 = get_vo2_data(vo2_file, athlete, training_date)
         data = process_file(file_path)
         metrics = analyze_data(data)
         results.append({
             'file': file,
             'date': training_date,
-            'metrics': metrics
+            'metrics': metrics,
+            'avg_vo2': avg_vo2,
+            'max_vo2': max_vo2
         })
     summary_df = summary_data(results)
     save_summary_json(results, athlete, athlete_mod_uc)

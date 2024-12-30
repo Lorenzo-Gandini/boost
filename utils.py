@@ -560,3 +560,20 @@ def show_animation(file, bones_pos, body_edges, colors, points_indices=None):
         time.sleep(interval)
 
     vis.run()
+
+def save_stats(stats1, stats2, athlete, athlete_mod_uc, joint, side):
+    """
+    Save the extracted statistics to a JSON file.
+    """
+    output_folder = f"output/{athlete}/stats/"
+    os.makedirs(output_folder, exist_ok=True)
+    output_file = os.path.join(output_folder, f"{athlete_mod_uc}_{joint}_{side}_stats.json")
+
+    stats = {
+        "Setting_1": stats1,
+        "Setting_2": stats2
+    }
+
+    with open(output_file, "w") as f:
+        json.dump(stats, f, indent=4)
+    print(f"{joint.capitalize()} statistics saved to: {output_file}")

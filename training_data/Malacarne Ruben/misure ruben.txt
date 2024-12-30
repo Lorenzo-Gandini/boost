@@ -1,0 +1,2 @@
+cavallo 80,5
+busto 49

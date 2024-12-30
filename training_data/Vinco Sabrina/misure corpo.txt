@@ -1,0 +1,2 @@
+cavallo: 74
+busto: 46cm

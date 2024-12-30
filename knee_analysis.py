@@ -1,10 +1,9 @@
 import os
-import json
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 from scipy.stats import gaussian_kde
-from utils import get_bones_position, calculate_angles
+from utils import get_bones_position, calculate_angles, save_stats
 from optitrack.csv_reader import Take
 
 
@@ -13,14 +12,18 @@ def ask_knee_side():
     Ask to the user which knee wants to analyze (Right or Left).
     """
     valid_inputs = {
-        "r": "right", "right": "right",
-        "l": "left", "left": "left"
-    }
+            "r": "right", "right": "right", "1": "right",
+            "l": "left", "left": "left", "2": "left",
+            "b": "both", "both": "both", "3": "both",
+        }
     while True:
-        side = input("Which knee do you want to analyze? (left/right): ").strip().lower()
+        side = input("Which knee do you want to analyze? OPTIONS:\n"
+                    "1. Right knee\n"
+                    "2. Left knee\n"
+                    "3. Both knees\n").strip().lower()
         if side in valid_inputs:
             return valid_inputs[side]
-        print("Invalid input. Please type 'left' or 'right'.")
+        print("Invalid input. Please type 'left', 'right', or 'both.")
 
 
 def analyze_knee_angle(angles, angle_key):
@@ -169,13 +172,18 @@ def plot_angle_and_velocity_for_cycle( angles1, angles2, peaks1, peaks2, cycle_i
         plt.show()
     plt.close()
 
-
-
 def run_knee_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     """
     Entry point for knee analysis.
     """
     side = ask_knee_side()
+
+    if side in ["left", "both"]:
+        analyze_single_knee(athlete, athlete_mod, athlete_mod_uc, "left", show_plots)
+    if side in ["right", "both"]:
+        analyze_single_knee(athlete, athlete_mod, athlete_mod_uc, "right", show_plots)
+
+def analyze_single_knee(athlete, athlete_mod, athlete_mod_uc, side, show_plots):
     angle_key = "knee_l" if side == "left" else "knee_r"
 
     csv_file_1 = f"lab_records/{athlete_mod}_1.csv"
@@ -198,7 +206,7 @@ def run_knee_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     stats1, peaks1, valleys1, angle_data1 = analyze_knee_angle(angles_1, angle_key)
     stats2, peaks2, valleys2, angle_data2 = analyze_knee_angle(angles_2, angle_key)
 
-    output_folder = f"output/{athlete}/plots/"
+    output_folder = f"output/{athlete}/"
     os.makedirs(output_folder, exist_ok=True)
 
     # Distribuzione degli angoli - picchi
@@ -206,7 +214,7 @@ def run_knee_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
         angle_data1, angle_data2, peaks1, peaks2,
         f"{side.capitalize()} Knee Angle Distribution - Peaks",
         "Setting 1 Peaks", "Setting 2 Peaks",
-        os.path.join(output_folder, f"{athlete_mod_uc}_knee_{side}_peaks_distribution.png"),
+        os.path.join(output_folder, f"plots/{athlete_mod_uc}_knee_{side}_peaks_distribution.png"),
         show_plots,
     )
 
@@ -215,7 +223,7 @@ def run_knee_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
         angle_data1, angle_data2, valleys1, valleys2,
         f"{side.capitalize()} Knee Angle Distribution - Valleys",
         "Setting 1 Valleys", "Setting 2 Valleys",
-        os.path.join(output_folder, f"{athlete_mod_uc}_knee_{side}_valleys_distribution.png"),
+        os.path.join(output_folder, f"plots/{athlete_mod_uc}_knee_{side}_valleys_distribution.png"),
         show_plots,
     )
 
@@ -224,7 +232,7 @@ def run_knee_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
         peaks1, peaks2, angle_data1, angle_data2,
         f"{side.capitalize()} Knee Polar Plot - Peaks",
         "Setting 1 Peaks", "Setting 2 Peaks",
-        os.path.join(output_folder, f"{athlete_mod_uc}_knee_{side}_polar_peaks.png"),
+        os.path.join(output_folder, f"plots/{athlete_mod_uc}_knee_{side}_polar_peaks.png"),
         show_plots,
     )
 
@@ -233,7 +241,7 @@ def run_knee_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
         valleys1, valleys2, angle_data1, angle_data2,
         f"{side.capitalize()} Knee Polar Plot - Valleys",
         "Setting 1 Valleys", "Setting 2 Valleys",
-        os.path.join(output_folder, f"{athlete_mod_uc}_knee_{side}_polar_valleys.png"),
+        os.path.join(output_folder, f"plots/{athlete_mod_uc}_knee_{side}_polar_valleys.png"),
         show_plots,
     )
 
@@ -242,6 +250,9 @@ def run_knee_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
         angle_data1, angle_data2, peaks1, peaks2, cycle_index,
         f"{side.capitalize()} Knee - Single Cycle Analysis",
         "Setting 1", "Setting 2",
-        os.path.join(output_folder, f"{athlete_mod_uc}_knee_{side}_cycle_{cycle_index}_analysis.png"),
+        os.path.join(output_folder, f"plots/{athlete_mod_uc}_knee_{side}_cycle_{cycle_index}_analysis.png"),
         show_plots,
     )
+
+        # Save statistics
+    save_stats(stats1, stats2, athlete, athlete_mod_uc, "knee", side)

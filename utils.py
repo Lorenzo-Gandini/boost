@@ -76,6 +76,108 @@ def ask_joint_side(joint_name):
             return valid_inputs[side]
         print("Invalid input. Please type 'left', 'right', or 'both'.")
 
+def show_animation(file, bones_pos, body_edges, colors, points_indices=None):
+    """
+    Show the animation of the stickman. Optionally, highlight trajectories of specific points.
+
+    Parameters:
+        file: Loaded file containing the frame rate.
+        bones_pos: Positions of all bones over time.
+        body_edges: Edges defining the connections between bones.
+        colors: Colors for the edges.
+        points_indices: Optional list of indices of the points whose trajectories should be shown.
+                        If None, no trajectories are shown, only the stickman animation.
+    """
+    # Ensure points_indices is a list if provided
+    if points_indices is not None and isinstance(points_indices, int):
+        points_indices = [points_indices]
+
+    # Create a point cloud for joints
+    keypoints = o3d.geometry.PointCloud()
+    keypoints.points = o3d.utility.Vector3dVector(bones_pos[0])
+
+    # Create a LineSet for skeletal connections
+    skeleton_joints = o3d.geometry.LineSet()
+    skeleton_joints.points = o3d.utility.Vector3dVector(bones_pos[0])
+    skeleton_joints.lines = o3d.utility.Vector2iVector(body_edges)
+    skeleton_joints.colors = o3d.utility.Vector3dVector(colors)
+
+    # Create LineSets for trajectories if points_indices is provided
+    trajectories = {}
+    if points_indices is not None:
+        for idx in points_indices:
+            trajectories[idx] = {
+                "points": [],
+                "lines": [],
+                "geometry": o3d.geometry.LineSet()
+            }
+
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    vis.add_geometry(skeleton_joints)
+    vis.add_geometry(keypoints)
+
+    # Add all trajectories to the visualizer if points_indices is provided
+    if points_indices is not None:
+        for traj in trajectories.values():
+            vis.add_geometry(traj["geometry"])
+
+    # Settings for the animation
+    frame_rate = file.frame_rate
+    num_frames = bones_pos.shape[0]
+    interval = 1 / frame_rate
+
+    for i in range(num_frames):
+        # Update skeleton and keypoints positions
+        new_joints = bones_pos[i]
+        skeleton_joints.points = o3d.utility.Vector3dVector(new_joints)
+        keypoints.points = o3d.utility.Vector3dVector(new_joints)
+
+        # Update trajectories for each point if points_indices is provided
+        if points_indices is not None:
+            for idx in points_indices:
+                trajectories[idx]["points"].append(new_joints[idx])
+                if len(trajectories[idx]["points"]) > 1:
+                    trajectories[idx]["lines"].append([
+                        len(trajectories[idx]["points"]) - 2,
+                        len(trajectories[idx]["points"]) - 1
+                    ])
+
+                trajectory_geometry = trajectories[idx]["geometry"]
+                trajectory_geometry.points = o3d.utility.Vector3dVector(np.array(trajectories[idx]["points"], dtype=np.float64))
+                if trajectories[idx]["lines"]:
+                    trajectory_geometry.lines = o3d.utility.Vector2iVector(np.array(trajectories[idx]["lines"], dtype=np.int32))
+
+        # Update the visualizer
+        vis.update_geometry(skeleton_joints)
+        vis.update_geometry(keypoints)
+        if points_indices is not None:
+            for traj in trajectories.values():
+                vis.update_geometry(traj["geometry"])
+
+        vis.poll_events()
+        vis.update_renderer()
+        time.sleep(interval)
+
+    vis.run()
+
+def save_stats(stats1, stats2, athlete, athlete_mod_uc, joint, side):
+    """
+    Save the extracted statistics to a JSON file.
+    """
+    output_folder = f"output/{athlete}/stats/"
+    os.makedirs(output_folder, exist_ok=True)
+    output_file = os.path.join(output_folder, f"{athlete_mod_uc}_{joint}_{side}_stats.json")
+
+    stats = {
+        "Setting_1": stats1,
+        "Setting_2": stats2
+    }
+
+    with open(output_file, "w") as f:
+        json.dump(stats, f, indent=4)
+    print(f"{joint.capitalize()} statistics saved to: {output_file}")
+
 #--- GENERAL OPTIONS ---#
 def get_bones_position(file):
     bodies = file.rigid_bodies
@@ -166,7 +268,7 @@ def get_zones(df):
     zone_5 = df.iloc[-1 * 60 * fps:]
     return zone_2, zone_3, zone_5
 
-#--- LEGS ---#
+#--- KNEE AND ANKLE ---#
 def calculate_angles(bones_pos):
     """
     Give back a dictionary with all the angles of the legs
@@ -212,7 +314,6 @@ def calculate_angle(v1, v2):
     return angle_deg
 
 #--- SPINE BACK ---#
-
 def analyze_angle(df, point1_start, point1_end, point2_start, point2_end, angle_name):
     """
     Extract the angle between two given vectors.
@@ -334,59 +435,6 @@ def plot_angles_combined(zones_1, zones_2, labels, title_prefix, output_file, sh
         plt.show()
     plt.close()
 
-def save_spine_values(bones_pos):
-    """
-    Extract metrics for the spine and save the json
-    """
-    spine_metrics = []
-
-    for frame_idx, joints in enumerate(bones_pos):
-        # Extract spine positions
-        hip = joints[0].tolist()
-        ab = joints[1].tolist()
-        chest = joints[2].tolist()
-
-        # Append metrics for the current frame
-        spine_metrics.append({
-            "frame": frame_idx,
-            "hip": hip,
-            "ab": ab,
-            "chest": chest
-        })
-
-    output_folder = f"output/LEGS/Gandini Lorenzo/json/"
-    filename = f"{output_folder}Gandini Lorenzo_spine_metrics_3.json"
-    os.makedirs(output_folder, exist_ok=True)
-    with open(filename, 'w') as f:
-        json.dump(spine_metrics, f, indent=4)
-    print(f"Spine metrics saved to: {filename}")
-
-def load_spine_data(file_path):
-    """
-    Load spine metrics from a JSON file and convert to a DataFrame.
-    """
-    with open(file_path, 'r') as f:
-        data = json.load(f)
-
-    frames = []
-    for frame_data in data:
-        frame = {
-            "frame": frame_data["frame"],
-            "hip_x": frame_data["hip"][0],
-            "hip_y": frame_data["hip"][1],
-            "hip_z": frame_data["hip"][2],
-            "ab_x": frame_data["ab"][0],
-            "ab_y": frame_data["ab"][1],
-            "ab_z": frame_data["ab"][2],
-            "chest_x": frame_data["chest"][0],
-            "chest_y": frame_data["chest"][1],
-            "chest_z": frame_data["chest"][2],
-        }
-        frames.append(frame)
-
-    return pd.DataFrame(frames)
-
-
 def calculate_oscillations(bones_pos, zones=None):
     """
     Calcola le oscillazioni del punto 'ab' rispetto all'asse hip-chest.
@@ -458,7 +506,6 @@ def calculate_oscillations(bones_pos, zones=None):
 
     return oscillations_centered, {"global": global_stats, "zones": zone_stats}
 
-
 def plot_oscillations(data1, data2, title, save_path, show_plots):
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharey=True)
     fig.suptitle(title)
@@ -491,105 +538,3 @@ def plot_oscillations(data1, data2, title, save_path, show_plots):
     if show_plots:
         plt.show()
     plt.close()
-
-def show_animation(file, bones_pos, body_edges, colors, points_indices=None):
-    """
-    Show the animation of the stickman. Optionally, highlight trajectories of specific points.
-
-    Parameters:
-        file: Loaded file containing the frame rate.
-        bones_pos: Positions of all bones over time.
-        body_edges: Edges defining the connections between bones.
-        colors: Colors for the edges.
-        points_indices: Optional list of indices of the points whose trajectories should be shown.
-                        If None, no trajectories are shown, only the stickman animation.
-    """
-    # Ensure points_indices is a list if provided
-    if points_indices is not None and isinstance(points_indices, int):
-        points_indices = [points_indices]
-
-    # Create a point cloud for joints
-    keypoints = o3d.geometry.PointCloud()
-    keypoints.points = o3d.utility.Vector3dVector(bones_pos[0])
-
-    # Create a LineSet for skeletal connections
-    skeleton_joints = o3d.geometry.LineSet()
-    skeleton_joints.points = o3d.utility.Vector3dVector(bones_pos[0])
-    skeleton_joints.lines = o3d.utility.Vector2iVector(body_edges)
-    skeleton_joints.colors = o3d.utility.Vector3dVector(colors)
-
-    # Create LineSets for trajectories if points_indices is provided
-    trajectories = {}
-    if points_indices is not None:
-        for idx in points_indices:
-            trajectories[idx] = {
-                "points": [],
-                "lines": [],
-                "geometry": o3d.geometry.LineSet()
-            }
-
-    vis = o3d.visualization.Visualizer()
-    vis.create_window()
-    vis.add_geometry(skeleton_joints)
-    vis.add_geometry(keypoints)
-
-    # Add all trajectories to the visualizer if points_indices is provided
-    if points_indices is not None:
-        for traj in trajectories.values():
-            vis.add_geometry(traj["geometry"])
-
-    # Settings for the animation
-    frame_rate = file.frame_rate
-    num_frames = bones_pos.shape[0]
-    interval = 1 / frame_rate
-
-    for i in range(num_frames):
-        # Update skeleton and keypoints positions
-        new_joints = bones_pos[i]
-        skeleton_joints.points = o3d.utility.Vector3dVector(new_joints)
-        keypoints.points = o3d.utility.Vector3dVector(new_joints)
-
-        # Update trajectories for each point if points_indices is provided
-        if points_indices is not None:
-            for idx in points_indices:
-                trajectories[idx]["points"].append(new_joints[idx])
-                if len(trajectories[idx]["points"]) > 1:
-                    trajectories[idx]["lines"].append([
-                        len(trajectories[idx]["points"]) - 2,
-                        len(trajectories[idx]["points"]) - 1
-                    ])
-
-                trajectory_geometry = trajectories[idx]["geometry"]
-                trajectory_geometry.points = o3d.utility.Vector3dVector(np.array(trajectories[idx]["points"], dtype=np.float64))
-                if trajectories[idx]["lines"]:
-                    trajectory_geometry.lines = o3d.utility.Vector2iVector(np.array(trajectories[idx]["lines"], dtype=np.int32))
-
-        # Update the visualizer
-        vis.update_geometry(skeleton_joints)
-        vis.update_geometry(keypoints)
-        if points_indices is not None:
-            for traj in trajectories.values():
-                vis.update_geometry(traj["geometry"])
-
-        vis.poll_events()
-        vis.update_renderer()
-        time.sleep(interval)
-
-    vis.run()
-
-def save_stats(stats1, stats2, athlete, athlete_mod_uc, joint, side):
-    """
-    Save the extracted statistics to a JSON file.
-    """
-    output_folder = f"output/{athlete}/stats/"
-    os.makedirs(output_folder, exist_ok=True)
-    output_file = os.path.join(output_folder, f"{athlete_mod_uc}_{joint}_{side}_stats.json")
-
-    stats = {
-        "Setting_1": stats1,
-        "Setting_2": stats2
-    }
-
-    with open(output_file, "w") as f:
-        json.dump(stats, f, indent=4)
-    print(f"{joint.capitalize()} statistics saved to: {output_file}")

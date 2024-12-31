@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import io
 from datetime import datetime
+from utils import user_message
 
 def load_files(folder_path, athlete):
     file_pattern = re.compile(rf"{re.escape(athlete)} - (.*?) - (\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}-\d{{2}})\.csv")
@@ -115,7 +116,7 @@ def save_summary_json(data, athlete, athlete_mod_uc):
     os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
     with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(json_data, json_file, indent=4)
-    print(f"Il riepilogo è stato salvato come JSON in {json_file_path}.")
+    user_message("Training statistics have been saved.", "saving_stats")
 
 def plot_results(summary_df, athlete, athlete_mod_uc, show_plots):
     metrics_to_plot = ['Potenza (watt)', 'Velocità (km/h)', 'Frequenza Cardiaca (bpm)', 'VO2']
@@ -145,6 +146,8 @@ def plot_results(summary_df, athlete, athlete_mod_uc, show_plots):
         if show_plots:
             plt.show()
         plt.close()
+    
+    user_message("All training graphs have been saved.", "saving_graph")
 
 def get_vo2_data(file_path, athlete, training_date):
     cognome, nome = athlete.split()

@@ -11,52 +11,72 @@ import matplotlib.pyplot as plt
 
 #-----MAIN----
 def ask_athlete(prompt):
+    """
+    Ask the user to select an athlete from the list, with emoji-enhanced feedback.
+    """
     folder_path = "training_data/"
     athletes = [f for f in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))]
     
-    print(prompt)
+    print(f"🤔 {prompt}")
     for index, athlete in enumerate(athletes, start=1):
-        print(f"{index}. {athlete}")
+        print(f"   {index}. {athlete}")
 
     while True:
         try:
-            choice = int(input("Choose an athlete to analyze : "))
+            choice = int(input("Your choice: "))
             if 1 <= choice <= len(athletes):
                 selected_athlete = athletes[choice - 1]
+                print(f"✅ You selected: {selected_athlete}\n")
                 return selected_athlete
             else:
                 raise ValueError
-            
         except ValueError:
-            print("Invalid user response")
+            print("❌ Invalid input. Please select a valid number.")
 
-def ask_option(prompt, reminder='Please try again!'):
-    options = {
-        '1': 1, 'spine': 1, 'SPINE': 1, 'Spine': 1,
-        '2': 2, 'leg': 2, 'LEG': 2, 'Leg': 2,
-        '3': 3, 'ankle': 3, 'ANKLE': 3, 'Ankle': 3,
-        '4': 4, 'training': 4, 'TRAINING': 4, 'Training': 4,
-        '5': 5, 'all': 5, 'ALL': 5, 'All': 5
-    }
-    
+def ask_option(prompt):
+    """
+    Ask the user to select an option for the type of analysis.
+    Returns the selected option as an integer.
+    """
+    print(f"🤔 {prompt}")
+    print("   1. Spine movements")
+    print("   2. Knee angles")
+    print("   3. Ankle angles")
+    print("   4. Training sessions")
+    print("   5. All of them.")
+
     while True:
-        reply = input(prompt).strip()
-        if reply in options:
-            return options[reply]
-        print(reminder)
+        try:
+            reply = int(input("Your choice: "))
+            if reply in {1, 2, 3, 4, 5}:
+                print(f"✅ You selected option {reply}\n")
+                return reply
+            else:
+                raise ValueError
+        except ValueError:
+            print("❌ Invalid input. Please select a valid option (1-5).")
+
+
 
 def ask_yesno(prompt):
+    """
+    Ask the user a yes/no question with emoji-enhanced feedback.
+    """
     valid_yes = {'y', 'Y', 'yes', 'YES', 'Yes'}
     valid_no = {'n', 'N', 'no', 'NO', 'No'}
-    
+
+    print(f"🤔 {prompt} (yes/no)")
     while True:
-        option = input(prompt).strip()
+        option = input("Your choice: ").strip()
         if option in valid_yes:
+            print("✅ You selected: Yes\n")
             return True
         elif option in valid_no:
+            print("✅ You selected: No\n")
             return False
         else:
-            print("Invalid user response. Please say 'yes' or 'no'.")
+            print("❌ Invalid input. Please respond with 'yes' or 'no'.")
+
 
 def ask_joint_side(joint_name):
     """
@@ -67,14 +87,57 @@ def ask_joint_side(joint_name):
         "l": "left", "left": "left", "2": "left",
         "b": "both", "both": "both", "3": "both",
     }
+    print(f"🤔 Which {joint_name} do you want to analyze?")
+    print("   1. Right\n   2. Left\n   3. Both")
+
     while True:
-        side = input(f"Which {joint_name} do you want to analyze? OPTIONS:\n"
-                     "1. Right\n"
-                     "2. Left\n"
-                     "3. Both\n").strip().lower()
+        side = input("Your choice: ").strip().lower()
         if side in valid_inputs:
+            print(f"✅ You selected: {valid_inputs[side]}\n")
             return valid_inputs[side]
-        print("Invalid input. Please type 'left', 'right', or 'both'.")
+        print("❌ Invalid input. Please type 'left', 'right', or 'both'.")
+
+def user_message(message, message_type="info"):
+    """
+    Display a standardized message to the user with optional emojis.
+    
+    Parameters:
+    - message: The text of the message.
+    - message_type: The type of message ('question', 'saving_graph', 'saving_stats', 'info').
+    
+    Emoji Mapping:
+    - 'question': 🤔
+    - 'saving_graph': 📊
+    - 'saving_stats': 💾
+    - 'info': ℹ️
+    """
+    emoji_map = {
+        "question": "🤔",
+        "saving_graph": "📊",
+        "saving_stats": "💾",
+        "info": "ℹ️",
+        "error": "❌",
+        "success": "✅"
+    }
+    emoji = emoji_map.get(message_type, "ℹ️")
+    print(f"{emoji} {message}")
+
+def print_recap(choices):
+    """
+    Print a recap of the user's choices at the end of the analysis.
+    
+    Parameters:
+    - choices: Dictionary containing user choices.
+    """
+    print("\n---- RECAP OF YOUR CHOICES ----")
+    print(f"   Athlete: {choices.get('athlete', 'N/A')}")
+    print(f"   SPINE Analysis: {'Enabled' if choices.get('spine') else 'Disabled'}")
+    print(f"   LEG Analysis: {'Enabled' if choices.get('leg') else 'Disabled'}")
+    print(f"   ANKLE Analysis: {'Enabled' if choices.get('ankle') else 'Disabled'}")
+    print(f"   TRAINING Analysis: {'Enabled' if choices.get('training') else 'Disabled'}")
+    print(f"   PDF Report: {'Yes' if choices.get('pdf') else 'No'}")
+    print()
+
 
 def show_animation(file, bones_pos, body_edges, colors, points_indices=None):
     """
@@ -176,7 +239,8 @@ def save_stats(stats1, stats2, athlete, athlete_mod_uc, joint, side):
 
     with open(output_file, "w") as f:
         json.dump(stats, f, indent=4)
-    print(f"{joint.capitalize()} statistics saved to: {output_file}")
+    user_message(f"All stats for the {side} {joint} analysis have been saved.", "saving_stats")
+
 
 #--- GENERAL OPTIONS ---#
 def get_bones_position(file):
@@ -538,3 +602,29 @@ def plot_oscillations(data1, data2, title, save_path, show_plots):
     if show_plots:
         plt.show()
     plt.close()
+
+#--- COMMUNICATE ---#
+def user_message(message, message_type="info"):
+    """
+    Display a standardized message to the user with optional emojis.
+    
+    Parameters:
+    - message: The text of the message.
+    - message_type: The type of message ('question', 'saving_graph', 'saving_stats', 'info').
+    
+    Emoji Mapping:
+    - 'question': 🤔
+    - 'saving_graph': 📊
+    - 'saving_stats': 💾
+    - 'info': ℹ️
+    """
+    emoji_map = {
+        "question": "🤔",
+        "saving_graph": "📊",
+        "saving_stats": "💾",
+        "info": "ℹ️",
+        "error": "❌",
+        "success": "✅"
+    }
+    emoji = emoji_map.get(message_type, "ℹ️")
+    print(f"{emoji} {message}")

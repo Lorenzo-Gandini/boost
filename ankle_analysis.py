@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 from scipy.stats import gaussian_kde
-from utils import get_bones_position, calculate_angles, save_stats, ask_joint_side
+from utils import get_bones_position, calculate_angles, save_stats, ask_joint_side, user_message
 
 def analyze_ankle_angle(angles, angle_key):
     """
@@ -59,7 +59,6 @@ def plot_distribution(angles1, angles2, indices1, indices2, title, label1, label
     dist1 = calculate_distribution(angles1, indices1)
     dist2 = calculate_distribution(angles2, indices2)
 
-    print(f"Saving distribution plot to: {output_file}")
     plt.figure(figsize=(10, 6))
     plt.hist(angles1[indices1], bins=60, alpha=0.6, color="red", label=label1, density=True)
     plt.hist(angles2[indices2], bins=60, alpha=0.6, color="blue", label=label2, density=True)
@@ -73,7 +72,6 @@ def plot_distribution(angles1, angles2, indices1, indices2, title, label1, label
 
     # Save and optionally show the plot
     plt.savefig(output_file)
-    print(f"Distribution plot saved successfully: {output_file}")
     if show_plots:
         plt.show()
     plt.close()
@@ -86,7 +84,6 @@ def plot_polar_angles(indices1, indices2, angles1, angles2, title, label1, label
     angles1_rad = np.deg2rad(angles1[indices1])
     angles2_rad = np.deg2rad(angles2[indices2])
 
-    print(f"Saving polar plot to: {output_file}")
     plt.figure(figsize=(8, 8))
     ax = plt.subplot(111, polar=True)
 
@@ -99,7 +96,6 @@ def plot_polar_angles(indices1, indices2, angles1, angles2, title, label1, label
 
     # Save and optionally show the plot
     plt.savefig(output_file)
-    print(f"Polar plot saved successfully: {output_file}")
     if show_plots:
         plt.show()
     plt.close()
@@ -122,8 +118,6 @@ def plot_angle_and_velocity_for_cycle(
     angles_cycle2 = angles2[start_frame2:end_frame2]
     velocity_cycle2 = np.gradient(angles_cycle2, 1 / frame_rate)
 
-    # Crea il grafico
-    print(f"Saving single cycle analysis plot to: {output_file}")
     fig, ax1 = plt.subplots(figsize=(12, 6))
 
     # Angoli sul primo asse Y
@@ -146,7 +140,6 @@ def plot_angle_and_velocity_for_cycle(
     # Salva il grafico
     plt.title(title)
     plt.savefig(output_file)
-    print(f"Single cycle plot saved successfully: {output_file}")
     if show_plots:
         plt.show()
     plt.close()
@@ -155,7 +148,7 @@ def run_ankle_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     """
     Entry point for ankle analysis.
     """
-    side = ask_joint_side()
+    side = ask_joint_side("ankle")
 
     if side in ["left", "both"]:
         analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, "left", show_plots)
@@ -200,6 +193,7 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
         show_plots,
     )
 
+
     # Distribuzione per i minimi
     plot_distribution(
         angle_data1, angle_data2, valleys1, valleys2,
@@ -237,4 +231,6 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
     )
 
     # Save statistics
+    user_message(f"All graphs for the {side} ankle analysis have been saved.", "saving_graph")
     save_stats(stats1, stats2, athlete, athlete_mod_uc, "ankle", side)
+

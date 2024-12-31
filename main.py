@@ -1,4 +1,4 @@
-from utils import ask_athlete, ask_option, ask_yesno
+from utils import ask_athlete, ask_option, ask_yesno, user_message, print_recap
 
 def main():
     # Richiesta delle informazioni sull'atleta
@@ -6,25 +6,9 @@ def main():
     athlete_mod = athlete.replace(" ", "_")
     athlete_mod_uc = athlete_mod.upper()
 
-    # Opzioni selezionate dall'utente
-    option = ask_option(
-        "\nWhat type of analysis do you want to run? \n"
-        "OPTIONS:\n"
-        "1. Spine movements\n"
-        "2. Knee angles\n"
-        "3. Ankle angles\n"
-        "4. Training sessions\n"
-        "5. All of them.\n"
-        "---> "
-    )
-    want_pdf = ask_yesno("\nDo you want a report in pdf? (yes / no)\n--->")
-    show_plots = ask_yesno("Do you want to see the plots during the analysis? (yes/no):")
-
-    # FIX THIS
-    # show_animation = ask_yesno("Do you want to see the animation of the athlete? (yes/no):")
-    # if show_animation:
-    #     show_animation(take, bones_pos, body_edges, colors, [0, 1, 2])
-
+    option = ask_option("What type of analysis do you want to run?")
+    want_pdf = ask_yesno("Do you want a PDF report?")
+    show_plots = ask_yesno("Do you want to see the plots during the analysis?")
 
     # Mappa delle opzioni
     SPINE = option in {1, 5}
@@ -33,37 +17,46 @@ def main():
     TRAINING = option in {4, 5}
     PDF = want_pdf
 
+    choices = {
+        "athlete": athlete,
+        "spine": SPINE,
+        "leg": KNEE,
+        "ankle": ANKLE,
+        "training": TRAINING,
+        "pdf": PDF
+    }
+    print_recap(choices)
+    proceed = ask_yesno("Do you want to proceed with these choices?")
+    if not proceed:
+        user_message("Analysis aborted. Please restart the program.", "error")
+        exit()
+        
     # Esegui le analisi con i parametri
     if SPINE:
+        user_message("SPINE analysis will be performed.", "info")
         import spine_analysis
         spine_analysis.run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots)
 
     if KNEE:
+        user_message("KNEE analysis will be performed.", "info")
         import knee_analysis
         knee_analysis.run_knee_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots)
-    
+
     if ANKLE:
+        user_message("ANKLE analysis will be performed.", "info")
         import ankle_analysis
         ankle_analysis.run_ankle_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots)
 
     if TRAINING:
+        user_message("TRAINING analysis will be performed.", "info")
         import training_analysis
         training_analysis.run_training_analysis(athlete, athlete_mod_uc, show_plots)
 
     if PDF:
+        user_message("A PDF report will be generated.", "info")
         import pdf_generator
         pdf_generator.generate_report(athlete)
-
-    # Recap finale
-    print("\n---- RECAP OF YOUR CHOICES ----")
-    print(f"Athlete: {athlete}")
-    print(f"SPINE Analysis: {'Enabled' if SPINE else 'Disabled'}")
-    print(f"LEG Analysis: {'Enabled' if KNEE else 'Disabled'}")
-    print(f"ANKLE Analysis: {'Enabled' if ANKLE else 'Disabled'}")
-    print(f"TRAINING Analysis: {'Enabled' if TRAINING else 'Disabled'}")
-    print(f"PDF Report: {'Yes' if PDF else 'No'}")
-
-    print("\nAnalysis completed.")
+        
 
 if __name__ == "__main__":
-    main()
+        main()

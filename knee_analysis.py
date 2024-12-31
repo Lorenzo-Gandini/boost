@@ -3,28 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 from scipy.stats import gaussian_kde
-from utils import get_bones_position, calculate_angles, save_stats
+from utils import get_bones_position, calculate_angles, save_stats, ask_joint_side
 from optitrack.csv_reader import Take
-
-
-def ask_knee_side():
-    """
-    Ask to the user which knee wants to analyze (Right or Left).
-    """
-    valid_inputs = {
-            "r": "right", "right": "right", "1": "right",
-            "l": "left", "left": "left", "2": "left",
-            "b": "both", "both": "both", "3": "both",
-        }
-    while True:
-        side = input("Which knee do you want to analyze? OPTIONS:\n"
-                    "1. Right knee\n"
-                    "2. Left knee\n"
-                    "3. Both knees\n").strip().lower()
-        if side in valid_inputs:
-            return valid_inputs[side]
-        print("Invalid input. Please type 'left', 'right', or 'both.")
-
 
 def analyze_knee_angle(angles, angle_key):
     """
@@ -176,7 +156,7 @@ def run_knee_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     """
     Entry point for knee analysis.
     """
-    side = ask_knee_side()
+    side = ask_joint_side()
 
     if side in ["left", "both"]:
         analyze_single_knee(athlete, athlete_mod, athlete_mod_uc, "left", show_plots)

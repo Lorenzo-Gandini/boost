@@ -4,7 +4,6 @@ import open3d as o3d
 import os
 import time
 import json
-import optitrack.csv_reader as csv
 from optitrack.geometry import *
 
 from scipy.stats import gaussian_kde
@@ -59,6 +58,23 @@ def ask_yesno(prompt):
         else:
             print("Invalid user response. Please say 'yes' or 'no'.")
 
+def ask_joint_side(joint_name):
+    """
+    Ask the user which side of a joint they want to analyze (e.g., Right, Left, or Both).
+    """
+    valid_inputs = {
+        "r": "right", "right": "right", "1": "right",
+        "l": "left", "left": "left", "2": "left",
+        "b": "both", "both": "both", "3": "both",
+    }
+    while True:
+        side = input(f"Which {joint_name} do you want to analyze? OPTIONS:\n"
+                     "1. Right\n"
+                     "2. Left\n"
+                     "3. Both\n").strip().lower()
+        if side in valid_inputs:
+            return valid_inputs[side]
+        print("Invalid input. Please type 'left', 'right', or 'both'.")
 
 #--- GENERAL OPTIONS ---#
 def get_bones_position(file):

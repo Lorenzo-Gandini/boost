@@ -1,30 +1,9 @@
 import os
-import json
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 from scipy.stats import gaussian_kde
-from utils import get_bones_position, calculate_angles, save_stats
-
-
-def ask_ankle_side():
-    """
-    Ask to the user which ankle wants to analyze (Right or Left).
-    """
-    valid_inputs = {
-        "r": "right", "right": "right", "1": "right",
-        "l": "left", "left": "left", "2": "left",
-        "b": "both", "both": "both", "3": "both",
-    }
-    while True:
-        side = input("Which ankle do you want to analyze? OPTIONS:\n"
-                    "1. Right ankle\n"
-                    "2. Left ankle\n"
-                    "3. Both ankles\n").strip().lower()
-        if side in valid_inputs:
-            return valid_inputs[side]
-        print("Invalid input. Please type 'left', 'right', or 'both.")
-
+from utils import get_bones_position, calculate_angles, save_stats, ask_joint_side
 
 def analyze_ankle_angle(angles, angle_key):
     """
@@ -176,7 +155,7 @@ def run_ankle_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     """
     Entry point for ankle analysis.
     """
-    side = ask_ankle_side()
+    side = ask_joint_side()
 
     if side in ["left", "both"]:
         analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, "left", show_plots)

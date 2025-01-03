@@ -1,134 +1,77 @@
 # Boost
 
-Welcome to the **Boost** repository! This project leverages advanced sports technology to analyze biomechanical and performance data, helping athletes and researchers optimize training and reduce injury risk.
+Welcome to the Boost repository! This project is focused on enhancing sports technology through innovative software solutions.
 
 ## Getting Started
 
-Follow the steps below to set up and run the project on your local machine.
-
----
+Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
 
 ### Prerequisites
 
-Ensure you have the following software installed:
+Make sure you have the following software installed on your machine:
 
-- [Python 3.x](https://www.python.org/downloads/) (required)
-- [pip](https://pip.pypa.io/en/stable/installation/) (for package management)
-
----
+- [Python 3.x](https://www.python.org/downloads/)
+- [pip](https://pip.pypa.io/en/stable/installation/)
 
 ### Installation
 
-1. **Clone the Repository**  
-   Clone the Boost repository to your local machine:
+1. Clone the repository:
+    ```sh
+    git clone https://github.com/your-username/boost.git
+    ```
+2. Navigate to the project directory:
+    ```sh
+    cd boost
+    ```
+3. Install the required dependencies:
+    ```sh
+    pip install -r requirements.txt
+    ```
 
-   git clone https://github.com/your-username/boost.git
-   
-2. **Navigate to the Project Directory**  
-   Move into the project folder:
+### Running the Code
 
-   cd boost
-   
-3. **Install Dependencies**  
-   Install all required Python libraries:
-
-   pip install -r requirements.txt
-   
-
----
-
-### Running the Project
-
-To execute the main application, run the following command:
+To run the main application, use the following command:
+```sh
 python main.py
+```
+User Interaction
+After running python main.py, you will be prompted to provide some information and make choices for the analysis:
+
+Select Athlete: You will be asked to select an athlete from the list of available athletes in the training_data folder.
+
+🤔 Which athlete do you want to analyze?
+   1. Athlete1
+   2. Athlete2
+   ...
+
+2. Select Analysis Type: You will be asked to choose the type of analysis you want to run.
+🤔 What type of analysis do you want to run?
+   1. Spine movements
+   2. Knee angles
+   3. Ankle angles
+   4. Training sessions
+   5. All of them.
+
+3. Show Plots: You will be asked if you want to see the plots during the analysis.
+🤔 Do you want to see the plots during the analysis? (yes/no)
+
+Recap and Confirmation: A recap of your choices will be displayed, and you will be asked to confirm if you want to proceed with the analysis.
+---- RECAP OF YOUR CHOICES ----
+   Athlete: Athlete1
+   SPINE Analysis: Enabled
+   LEG Analysis: Disabled
+   ANKLE Analysis: Disabled
+   TRAINING Analysis: Disabled
+   PDF Report: Yes
+
+🤔 Do you want to proceed with these choices? (yes/no)
+
+Joint Side Selection: For knee and ankle analyses, you will be asked to select which side (right, left, or both) you want to analyze.
 
 
----
+🤔 Which knee do you want to analyze?
+   1. Right
+   2. Left
+   3. Both
 
-## How to Use Boost
-
-### Interactive Workflow
-
-Once the application starts, you will be guided through an interactive menu:
-
-1. **Select Athlete**  
-   Choose an athlete for analysis. Athletes are loaded from the `training_data` folder:
-   
-   🤔 Which athlete do you want to analyze?
-      1. Athlete1
-      2. Athlete2
-      ...
-   
-
-2. **Choose Analysis Type**  
-   Select the type(s) of analysis you want to run:
-   
-   🤔 What type of analysis do you want to run?
-      1. Spine movements
-      2. Knee angles
-      3. Ankle angles
-      4. Training sessions
-      5. All of them
-   
-
-3. **Show Plots**  
-   Specify whether to display plots during the analysis:
-   
-   🤔 Do you want to see the plots during the analysis? (yes/no)
-   
-
-4. **Review Your Choices**  
-   The program will recap your selections and ask for confirmation:
-   
-   ---- RECAP OF YOUR CHOICES ----
-      Athlete: Athlete1
-      SPINE Analysis: Enabled
-      LEG Analysis: Disabled
-      ANKLE Analysis: Disabled
-      TRAINING Analysis: Disabled
-      PDF Report: Yes
-
-   🤔 Do you want to proceed with these choices? (yes/no)
-   
-
-5. **Side Selection (for Knee and Ankle Analyses)**  
-   If analyzing knees or ankles, choose the side(s) to focus on:
-   
-   🤔 Which knee do you want to analyze?
-      1. Right
-      2. Left
-      3. Both
-   
-
----
-
-### Output
-
-Results will be saved in the `output/{athlete}` directory, organized by analysis type. If enabled, visual plots and a PDF report will also be generated.
-
-The directory structure for output will look like this:
-
-output/
-├── Athlete1/
-│   ├── spine_analysis/
-│   │   ├── plot1.png
-│   │   └── report.pdf
-│   ├── knee_analysis/
-│   │   ├── plot1.png
-│   │   └── plot2.png
-│   └── ...
-├── Athlete2/
-│   └── ...
-
-
----
-
-## Contributing
-
-If you'd like to contribute to Boost, feel free to submit a pull request or open an issue in the repository. We welcome feedback and suggestions!
-
----
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+   Follow the prompts to complete the analysis. The results will be saved in the output/{athlete} directory. ```

@@ -83,12 +83,12 @@ for col in data.columns[:-1]:
     if allenamento_mean is not None:
         plt.plot([], [], ' ', label=f'Media Allenamento: {allenamento_mean:.2f}')
 
-    # # Draw graph
-    # plt.xlabel('Tempo (sec)')
-    # plt.ylabel(col)
-    # plt.ylim(0, data[col].max())
-    # plt.yticks(np.arange(0, (data[col].max() * 1.1) + (max(1, round((data[col].max() * 1.1) / 10))), max(1, round((data[col].max() * 1.1) / 10))))  
-    # plt.title('Andamento della ' + col.split(" ")[0] + ' e Fasi di Allenamento')
-    # plt.legend()
-    # plt.grid()
-    # plt.show()
+    # Draw graph
+    plt.xlabel('Tempo (sec)')
+    plt.ylabel(col)
+    plt.ylim(0, data[col].max())
+    plt.yticks(np.arange(0, (data[col].max() * 1.1) + (max(1, round((data[col].max() * 1.1) / 10))), max(1, round((data[col].max() * 1.1) / 10))))  
+    plt.title('Andamento della ' + col.split(" ")[0] + ' e Fasi di Allenamento')
+    plt.legend()
+    plt.grid()
+    plt.show()

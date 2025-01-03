@@ -7,7 +7,7 @@ def main():
     athlete_mod_uc = athlete_mod.upper()
 
     option = ask_option("What type of analysis do you want to run?")
-    want_pdf = ask_yesno("Do you want a PDF report?")
+    # want_pdf = ask_yesno("Do you want a PDF report?")
     show_plots = ask_yesno("Do you want to see the plots during the analysis?")
 
     # Mappa delle opzioni
@@ -15,15 +15,15 @@ def main():
     KNEE = option in {2, 5}
     ANKLE = option in {3, 5}
     TRAINING = option in {4, 5}
-    PDF = want_pdf
+    # PDF = want_pdf
 
     choices = {
         "athlete": athlete,
         "spine": SPINE,
         "leg": KNEE,
         "ankle": ANKLE,
-        "training": TRAINING,
-        "pdf": PDF
+        "training": TRAINING
+        # "pdf": PDF
     }
     print_recap(choices)
     proceed = ask_yesno("Do you want to proceed with these choices?")
@@ -52,10 +52,10 @@ def main():
         import training_analysis
         training_analysis.run_training_analysis(athlete, athlete_mod_uc, show_plots)
 
-    if PDF:
-        user_message("A PDF report will be generated.", "info")
-        import pdf_generator
-        pdf_generator.generate_report(athlete)
+    # if PDF:
+    #     user_message("A PDF report will be generated.", "info")
+    #     import pdf_generator
+    #     pdf_generator.generate_report(athlete)
         
 
 if __name__ == "__main__":

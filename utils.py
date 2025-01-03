@@ -9,7 +9,7 @@ from optitrack.geometry import *
 from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plt
 
-#-----MAIN----
+#----- MAIN AND COMMUNICATIONS ----
 def ask_athlete(prompt):
     """
     Ask the user to select an athlete from the list, with emoji-enhanced feedback.
@@ -56,8 +56,6 @@ def ask_option(prompt):
         except ValueError:
             print("❌ Invalid input. Please select a valid option (1-5).")
 
-
-
 def ask_yesno(prompt):
     """
     Ask the user a yes/no question with emoji-enhanced feedback.
@@ -76,7 +74,6 @@ def ask_yesno(prompt):
             return False
         else:
             print("❌ Invalid input. Please respond with 'yes' or 'no'.")
-
 
 def ask_joint_side(joint_name):
     """
@@ -138,6 +135,76 @@ def print_recap(choices):
     print(f"   PDF Report: {'Yes' if choices.get('pdf') else 'No'}")
     print()
 
+def user_message(message, message_type="info"):
+    """
+    Display a standardized message to the user with optional emojis.
+    
+    Parameters:
+    - message: The text of the message.
+    - message_type: The type of message ('question', 'saving_graph', 'saving_stats', 'info').
+    
+    Emoji Mapping:
+    - 'question': 🤔
+    - 'saving_graph': 📊
+    - 'saving_stats': 💾
+    - 'info': ℹ️
+    """
+    emoji_map = {
+        "question": "🤔",
+        "saving_graph": "📊",
+        "saving_stats": "💾",
+        "info": "ℹ️",
+        "error": "❌",
+        "success": "✅"
+    }
+    emoji = emoji_map.get(message_type, "ℹ️")
+    print(f"{emoji} {message}")
+
+#--- GENERAL OPTIONS ---#
+def get_bones_position(file):
+    bodies = file.rigid_bodies
+    body_edges = [
+        [0, 1],  # Hip -> Ab
+        [1, 2],  # Ab -> Chest
+        [2, 3],  # Chest -> Neck
+        [3, 4],  # Neck -> Head
+        [3, 5],  # Neck -> LShoulder
+        [5, 6],  # LShoulder -> LUArm
+        [6, 7],  # LUArm -> LFArm
+        [7, 8],  # LFArm -> LHand
+        [3, 9],  # Neck -> RShoulder
+        [9, 10], # RShoulder -> RUArm
+        [10, 11],# RUArm -> RFArm
+        [11, 12],# RFArm -> RHand
+        [0, 13], # Hip -> LThigh
+        [13, 14],# LThigh -> LShin
+        [14, 15],# LShin -> LFoot
+        [15, 16],# LFoot -> LToe
+        [0, 17], # Hip -> RThigh
+        [17, 18],# RThigh -> RShin
+        [18, 19],# RShin -> RFoot
+        [19, 20] # RFoot -> RToe
+    ]
+
+    bones_pos = []
+    if len(bodies) > 0:
+        for body in bodies: 
+            bones = file.rigid_bodies[body]
+            
+            # set 0,0,0 in case point missing
+            fixed_positions = [
+                pos if pos is not None else [0.0, 0.0, 0.0]
+                for pos in bones.positions
+            ]
+            bones_pos.append(fixed_positions)
+
+    bones_pos = np.array(bones_pos).transpose((1, 0, 2))
+    colors = [[1, 0, 0] for i in range(len(body_edges))]
+
+    #interpolate zeros
+    bones_pos = interpolate_bones_positions(bones_pos)
+
+    return body_edges, bones_pos, colors
 
 def show_animation(file, bones_pos, body_edges, colors, points_indices=None):
     """
@@ -240,53 +307,6 @@ def save_stats(stats1, stats2, athlete, athlete_mod_uc, joint, side):
     with open(output_file, "w") as f:
         json.dump(stats, f, indent=4)
     user_message(f"All stats for the {side} {joint} analysis have been saved.", "saving_stats")
-
-
-#--- GENERAL OPTIONS ---#
-def get_bones_position(file):
-    bodies = file.rigid_bodies
-    body_edges = [
-        [0, 1],  # Hip -> Ab
-        [1, 2],  # Ab -> Chest
-        [2, 3],  # Chest -> Neck
-        [3, 4],  # Neck -> Head
-        [3, 5],  # Neck -> LShoulder
-        [5, 6],  # LShoulder -> LUArm
-        [6, 7],  # LUArm -> LFArm
-        [7, 8],  # LFArm -> LHand
-        [3, 9],  # Neck -> RShoulder
-        [9, 10], # RShoulder -> RUArm
-        [10, 11],# RUArm -> RFArm
-        [11, 12],# RFArm -> RHand
-        [0, 13], # Hip -> LThigh
-        [13, 14],# LThigh -> LShin
-        [14, 15],# LShin -> LFoot
-        [15, 16],# LFoot -> LToe
-        [0, 17], # Hip -> RThigh
-        [17, 18],# RThigh -> RShin
-        [18, 19],# RShin -> RFoot
-        [19, 20] # RFoot -> RToe
-    ]
-
-    bones_pos = []
-    if len(bodies) > 0:
-        for body in bodies: 
-            bones = file.rigid_bodies[body]
-            
-            # set 0,0,0 in case point missing
-            fixed_positions = [
-                pos if pos is not None else [0.0, 0.0, 0.0]
-                for pos in bones.positions
-            ]
-            bones_pos.append(fixed_positions)
-
-    bones_pos = np.array(bones_pos).transpose((1, 0, 2))
-    colors = [[1, 0, 0] for i in range(len(body_edges))]
-
-    #interpolate zeros
-    bones_pos = interpolate_bones_positions(bones_pos)
-
-    return body_edges, bones_pos, colors
 
 def interpolate_bones_positions(bones_pos):
     """
@@ -602,85 +622,3 @@ def plot_oscillations(data1, data2, title, save_path, show_plots):
     if show_plots:
         plt.show()
     plt.close()
-
-#--- COMMUNICATE ---#
-def user_message(message, message_type="info"):
-    """
-    Display a standardized message to the user with optional emojis.
-    
-    Parameters:
-    - message: The text of the message.
-    - message_type: The type of message ('question', 'saving_graph', 'saving_stats', 'info').
-    
-    Emoji Mapping:
-    - 'question': 🤔
-    - 'saving_graph': 📊
-    - 'saving_stats': 💾
-    - 'info': ℹ️
-    """
-    emoji_map = {
-        "question": "🤔",
-        "saving_graph": "📊",
-        "saving_stats": "💾",
-        "info": "ℹ️",
-        "error": "❌",
-        "success": "✅"
-    }
-    emoji = emoji_map.get(message_type, "ℹ️")
-    print(f"{emoji} {message}")
-
-# WORKINPROGRESS 
-def compute_symmetry(left_data, right_data, metric_name="Angle", show_plots=True):
-    """
-    Compute symmetry metrics for given left and right data, and optionally plot the results.
-    
-    Parameters:
-        left_data (array-like): Data for the left side (e.g., left knee or ankle angles).
-        right_data (array-like): Data for the right side (e.g., right knee or ankle angles).
-        metric_name (str): Name of the metric being analyzed (e.g., "Angle", "Velocity").
-        show_plots (bool): Whether to display plots for comparison.
-    
-    Returns:
-        dict: Dictionary containing symmetry metrics.
-    """
-    # Compute basic statistics
-    left_mean = np.mean(left_data)
-    right_mean = np.mean(right_data)
-    left_std = np.std(left_data)
-    right_std = np.std(right_data)
-
-    # Symmetry ratio and asymmetry index
-    symmetry_ratio = left_mean / right_mean if right_mean != 0 else np.nan
-    asymmetry_index = abs(left_mean - right_mean)
-
-    # Package metrics
-    metrics = {
-        "left_mean": left_mean,
-        "right_mean": right_mean,
-        "left_std": left_std,
-        "right_std": right_std,
-        "symmetry_ratio": symmetry_ratio,
-        "asymmetry_index": asymmetry_index
-    }
-
-    # Plot data
-    if show_plots:
-        plt.figure(figsize=(10, 5))
-        plt.plot(left_data, label=f"Left {metric_name}", color="blue")
-        plt.plot(right_data, label=f"Right {metric_name}", color="red")
-        plt.title(f"{metric_name} Symmetry Analysis")
-        plt.xlabel("Frames")
-        plt.ylabel(metric_name)
-        plt.legend()
-        plt.grid()
-        plt.show()
-
-    return metrics
-
-# Example usage:
-# Replace these with the actual left and right data
-left_knee_data = np.random.normal(45, 5, 100)  # Example data for left knee
-right_knee_data = np.random.normal(43, 5, 100)  # Example data for right knee
-
-symmetry_metrics = compute_symmetry(left_knee_data, right_knee_data, metric_name="Knee Angle", show_plots=True)
-print("Symmetry Metrics:", symmetry_metrics)

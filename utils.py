@@ -628,3 +628,59 @@ def user_message(message, message_type="info"):
     }
     emoji = emoji_map.get(message_type, "ℹ️")
     print(f"{emoji} {message}")
+
+# WORKINPROGRESS 
+def compute_symmetry(left_data, right_data, metric_name="Angle", show_plots=True):
+    """
+    Compute symmetry metrics for given left and right data, and optionally plot the results.
+    
+    Parameters:
+        left_data (array-like): Data for the left side (e.g., left knee or ankle angles).
+        right_data (array-like): Data for the right side (e.g., right knee or ankle angles).
+        metric_name (str): Name of the metric being analyzed (e.g., "Angle", "Velocity").
+        show_plots (bool): Whether to display plots for comparison.
+    
+    Returns:
+        dict: Dictionary containing symmetry metrics.
+    """
+    # Compute basic statistics
+    left_mean = np.mean(left_data)
+    right_mean = np.mean(right_data)
+    left_std = np.std(left_data)
+    right_std = np.std(right_data)
+
+    # Symmetry ratio and asymmetry index
+    symmetry_ratio = left_mean / right_mean if right_mean != 0 else np.nan
+    asymmetry_index = abs(left_mean - right_mean)
+
+    # Package metrics
+    metrics = {
+        "left_mean": left_mean,
+        "right_mean": right_mean,
+        "left_std": left_std,
+        "right_std": right_std,
+        "symmetry_ratio": symmetry_ratio,
+        "asymmetry_index": asymmetry_index
+    }
+
+    # Plot data
+    if show_plots:
+        plt.figure(figsize=(10, 5))
+        plt.plot(left_data, label=f"Left {metric_name}", color="blue")
+        plt.plot(right_data, label=f"Right {metric_name}", color="red")
+        plt.title(f"{metric_name} Symmetry Analysis")
+        plt.xlabel("Frames")
+        plt.ylabel(metric_name)
+        plt.legend()
+        plt.grid()
+        plt.show()
+
+    return metrics
+
+# Example usage:
+# Replace these with the actual left and right data
+left_knee_data = np.random.normal(45, 5, 100)  # Example data for left knee
+right_knee_data = np.random.normal(43, 5, 100)  # Example data for right knee
+
+symmetry_metrics = compute_symmetry(left_knee_data, right_knee_data, metric_name="Knee Angle", show_plots=True)
+print("Symmetry Metrics:", symmetry_metrics)

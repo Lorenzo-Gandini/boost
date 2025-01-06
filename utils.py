@@ -5,14 +5,16 @@ import os
 import time
 import json
 from optitrack.geometry import *
+from scipy.signal import find_peaks
 
 from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plt
 
-#----- MAIN AND COMMUNICATIONS ----
+# ---- COMMUNICATIONS WITH THE USER.
+# Set of funcions used to communicate with the user and ask for inputs.
 def ask_athlete(prompt):
     """
-    Ask the user to select an athlete from the list, with emoji-enhanced feedback.
+    Ask the user to select an athlete from the list of athlets inside the folder training_data.
     """
     folder_path = "training_data/"
     athletes = [f for f in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))]
@@ -36,7 +38,6 @@ def ask_athlete(prompt):
 def ask_option(prompt):
     """
     Ask the user to select an option for the type of analysis.
-    Returns the selected option as an integer.
     """
     print(f"🤔 {prompt}")
     print("   1. Spine movements")
@@ -58,7 +59,7 @@ def ask_option(prompt):
 
 def ask_yesno(prompt):
     """
-    Ask the user a yes/no question with emoji-enhanced feedback.
+    Ask the user a yes/no question
     """
     valid_yes = {'y', 'Y', 'yes', 'YES', 'Yes'}
     valid_no = {'n', 'N', 'no', 'NO', 'No'}
@@ -77,7 +78,7 @@ def ask_yesno(prompt):
 
 def ask_joint_side(joint_name):
     """
-    Ask the user which side of a joint they want to analyze (e.g., Right, Left, or Both).
+    Ask the user which side of a joint they want to analyze
     """
     valid_inputs = {
         "r": "right", "right": "right", "1": "right",
@@ -96,17 +97,7 @@ def ask_joint_side(joint_name):
 
 def user_message(message, message_type="info"):
     """
-    Display a standardized message to the user with optional emojis.
-    
-    Parameters:
-    - message: The text of the message.
-    - message_type: The type of message ('question', 'saving_graph', 'saving_stats', 'info').
-    
-    Emoji Mapping:
-    - 'question': 🤔
-    - 'saving_graph': 📊
-    - 'saving_stats': 💾
-    - 'info': ℹ️
+    Display a standardized message to the user with optional emojis to make the communications more enjoyable.
     """
     emoji_map = {
         "question": "🤔",
@@ -122,9 +113,6 @@ def user_message(message, message_type="info"):
 def print_recap(choices):
     """
     Print a recap of the user's choices at the end of the analysis.
-    
-    Parameters:
-    - choices: Dictionary containing user choices.
     """
     print("\n---- RECAP OF YOUR CHOICES ----")
     print(f"   Athlete: {choices.get('athlete', 'N/A')}")
@@ -135,33 +123,11 @@ def print_recap(choices):
     print(f"   PDF Report: {'Yes' if choices.get('pdf') else 'No'}")
     print()
 
-def user_message(message, message_type="info"):
-    """
-    Display a standardized message to the user with optional emojis.
-    
-    Parameters:
-    - message: The text of the message.
-    - message_type: The type of message ('question', 'saving_graph', 'saving_stats', 'info').
-    
-    Emoji Mapping:
-    - 'question': 🤔
-    - 'saving_graph': 📊
-    - 'saving_stats': 💾
-    - 'info': ℹ️
-    """
-    emoji_map = {
-        "question": "🤔",
-        "saving_graph": "📊",
-        "saving_stats": "💾",
-        "info": "ℹ️",
-        "error": "❌",
-        "success": "✅"
-    }
-    emoji = emoji_map.get(message_type, "ℹ️")
-    print(f"{emoji} {message}")
-
 #--- GENERAL OPTIONS ---#
 def get_bones_position(file):
+    """
+    Get the bones positions from the loaded csv file from the mocap.
+    """
     bodies = file.rigid_bodies
     body_edges = [
         [0, 1],  # Hip -> Ab
@@ -201,22 +167,15 @@ def get_bones_position(file):
     bones_pos = np.array(bones_pos).transpose((1, 0, 2))
     colors = [[1, 0, 0] for i in range(len(body_edges))]
 
-    #interpolate zeros
+    #interpolate zeros when there are missing values
     bones_pos = interpolate_bones_positions(bones_pos)
 
     return body_edges, bones_pos, colors
 
 def show_animation(file, bones_pos, body_edges, colors, points_indices=None):
     """
-    Show the animation of the stickman. Optionally, highlight trajectories of specific points.
-
-    Parameters:
-        file: Loaded file containing the frame rate.
-        bones_pos: Positions of all bones over time.
-        body_edges: Edges defining the connections between bones.
-        colors: Colors for the edges.
-        points_indices: Optional list of indices of the points whose trajectories should be shown.
-                        If None, no trajectories are shown, only the stickman animation.
+    Show the animation of the stickman. Optionally, highlight trajectories of specific giving points points.
+    This function were used in first versions, now it's not used anymore but usefull if desired to show the animation.
     """
     # Ensure points_indices is a list if provided
     if points_indices is not None and isinstance(points_indices, int):
@@ -322,7 +281,7 @@ def interpolate_bones_positions(bones_pos):
             joint_coord = bones_pos[:, joint, dim]  #extract the value for the current joint and dimension
 
             if np.any(invalid_frames):
-                valid_mask = ~invalid_frames        #~ è operatore NOT che agisce su array, creiamo una maschera complementare
+                valid_mask = ~invalid_frames        #~ è operatore NOT che agisce su array
                 if np.any(valid_mask):
                     valid_indices = np.where(valid_mask)[0]
                     invalid_indices = np.where(invalid_frames)[0]
@@ -341,8 +300,8 @@ def interpolate_bones_positions(bones_pos):
 
 def get_zones(df):
     """
-    Split the data into three temporal zones:
-    - Zone 2: First 2 minutes (assuming 30 FPS).
+    Split the data into three temporal zones (assuming 30 FPS):
+    - Zone 2: First 2 minutes.
     - Zone 3: Between 2 and 4 minutes.
     - Zone 5: Last minute of the recording.
     """
@@ -352,7 +311,8 @@ def get_zones(df):
     zone_5 = df.iloc[-1 * 60 * fps:]
     return zone_2, zone_3, zone_5
 
-#--- KNEE AND ANKLE ---#
+# --- ANALYSIS FUNCTIONS ---
+# Functions used to analyze the diffeent body parts and extract the statistics.
 def calculate_angles(bones_pos):
     """
     Give back a dictionary with all the angles of the legs
@@ -397,10 +357,9 @@ def calculate_angle(v1, v2):
     
     return angle_deg
 
-#--- SPINE BACK ---#
 def analyze_angle(df, point1_start, point1_end, point2_start, point2_end, angle_name):
     """
-    Extract the angle between two given vectors.
+    Analyze the angle between two given vectors.
     """
     angles = []
 
@@ -469,7 +428,7 @@ def analyze_angle_from_points(bones_pos, point1_start_idx, point1_end_idx, point
 
 def plot_angles_combined(zones_1, zones_2, labels, title_prefix, output_file, show_plots):
     """
-    Plot 2x3 histograms and KDE for two settings and multiple zones.
+    Plot 2x3 histograms and distributions for the two settings and the different zones.
     """
     colors = ['blue', 'orange', 'green']
     all_data = pd.concat(zones_1 + zones_2)
@@ -521,52 +480,40 @@ def plot_angles_combined(zones_1, zones_2, labels, title_prefix, output_file, sh
 
 def calculate_oscillations(bones_pos, zones=None):
     """
-    Calcola le oscillazioni del punto 'ab' rispetto all'asse hip-chest.
-    Ritorna:
-    - Le oscillazioni nel tempo centrate rispetto alla media dell'asse hip-chest.
-    - Le statistiche globali e per ciascuna zona, se specificata.
+    Calculate the oscillations of the hip-abdomen vector projected on the hip-chest axis.
     """
-    hip_idx = 0  # Indice per il punto Hip
-    chest_idx = 2  # Indice per il punto Chest
-    ab_idx = 1  # Indice per il punto Abdomen (Ab)
 
-    # Calcolo dell'asse medio hip-chest
-    hip_chest_vectors = bones_pos[:, chest_idx] - bones_pos[:, hip_idx]  # Vettori hip -> chest
-    hip_chest_mean = hip_chest_vectors.mean(axis=0)  # Media su tutti i frame
-    hip_chest_mean_unit = hip_chest_mean / np.linalg.norm(hip_chest_mean)  # Normalizzazione a vettore unitario
+    hip_idx = 0  # Hip index
+    chest_idx = 2  # Chest index
+    ab_idx = 1  #  Abdomen index
 
-    # Calcolo delle oscillazioni
+    # hip-chest axis
+    hip_chest_vectors = bones_pos[:, chest_idx] - bones_pos[:, hip_idx]  
+    hip_chest_mean = hip_chest_vectors.mean(axis=0)  
+    hip_chest_mean_unit = hip_chest_mean / np.linalg.norm(hip_chest_mean)  
+
+    #Oscillations are defined as the deviation of the hip-ab vector from the hip-chest axis (which is the mean vector)
     oscillations = []
     for frame in bones_pos:
         hip = frame[hip_idx]
         chest = frame[chest_idx]
         ab = frame[ab_idx]
-
-        # Vettore hip-ab
         hip_ab = ab - hip
 
-        # Proiezione di hip-ab sul vettore medio hip-chest
         projection_length = np.dot(hip_ab, hip_chest_mean_unit)
         projection = projection_length * hip_chest_mean_unit
-
-        # Deviazione perpendicolare
         deviation = hip_ab - projection
 
-        # Direzione ortogonale rispetto all'asse hip-chest (vista dall'alto)
         ortho_vector = np.cross(hip_chest_mean_unit, [0, 0, 1])  # Cross product con z-axis
         ortho_vector_unit = ortho_vector / np.linalg.norm(ortho_vector)
 
-        # Proiezione della deviazione sull'asse ortogonale
         deviation_magnitude = np.dot(deviation, ortho_vector_unit)
 
-        # Salva il valore della deviazione nel tempo
         oscillations.append(deviation_magnitude)
 
-    # Centralizza le oscillazioni rispetto al valore medio
     oscillations = np.array(oscillations)
     oscillations_centered = oscillations - oscillations.mean()
 
-    # Calcola statistiche globali
     global_stats = {
         "mean": float(oscillations_centered.mean()),
         "std_dev": float(oscillations_centered.std()),
@@ -574,7 +521,7 @@ def calculate_oscillations(bones_pos, zones=None):
         "mean_right": float(oscillations_centered[oscillations_centered < 0].mean())
     }
 
-    # Calcola statistiche per ciascuna zona
+    # Save info for each zone
     zone_names = ["Zone 2", "Zone 3", "Zone 5"]
     zone_stats = []
     if zones:
@@ -591,12 +538,15 @@ def calculate_oscillations(bones_pos, zones=None):
     return oscillations_centered, {"global": global_stats, "zones": zone_stats}
 
 def plot_oscillations(data1, data2, title, save_path, show_plots):
+    """
+    Plot the oscillations for the two settings.
+    """
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharey=True)
     fig.suptitle(title)
 
     # Define temporal zones
-    zone_limits = [0, 2 * 60 * 30, 4 * 60 * 30, len(data1)]  # Frames: 0, 2 min, 4 min, end (assuming 30 FPS)
-    zone_colors = ['lightgreen', 'lightblue', 'lightcoral']  # Colors for the zones
+    zone_limits = [0, 2 * 60 * 30, 4 * 60 * 30, len(data1)] 
+    zone_colors = ['lightgreen', 'lightblue', 'lightcoral']  
 
     # Plot for Setting 1
     for zone_start, zone_end, color in zip(zone_limits[:-1], zone_limits[1:], zone_colors):
@@ -619,6 +569,146 @@ def plot_oscillations(data1, data2, title, save_path, show_plots):
     # Save and show
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(save_path)
+    if show_plots:
+        plt.show()
+    plt.close()
+
+
+def analyze_joint_angle(angles, angle_key):
+    """
+    Analyze a specific knee angle, returning stats about it
+    """
+    angle_data = np.array([frame[angle_key] for frame in angles])
+
+    # Peaks and valleys (max and min)
+    peaks, _ = find_peaks(angle_data, prominence=5)
+    valleys, _ = find_peaks(-angle_data, prominence=5)
+
+    # Cycles 
+    num_cycles = min(len(peaks), len(valleys))
+    peaks = peaks[:num_cycles]
+    valleys = valleys[:num_cycles]
+
+    cycle_amplitudes = angle_data[peaks] - angle_data[valleys]
+    cycle_durations = np.diff(peaks)
+    cadence = 60 / (np.mean(cycle_durations) / 30) if len(cycle_durations) > 0 else 0  
+
+    # Angular velcoity
+    angular_velocity = np.gradient(angle_data, 1 / 30)  
+    angular_velocity_mean = np.mean(angular_velocity)
+    angular_velocity_std = np.std(angular_velocity)
+
+    stats = {
+        "mean": np.mean(angle_data),
+        "std": np.std(angle_data),
+        "min": np.min(angle_data),
+        "max": np.max(angle_data),
+        "range": np.max(angle_data) - np.min(angle_data),
+        "cycle_amplitude_mean": np.mean(cycle_amplitudes) if len(cycle_amplitudes) > 0 else 0,
+        "cycle_amplitude_std": np.std(cycle_amplitudes) if len(cycle_amplitudes) > 0 else 0,
+        "cadence": cadence,
+        "angular_velocity_mean": angular_velocity_mean,
+        "angular_velocity_std": angular_velocity_std,
+    }
+
+    return stats, peaks, valleys, angle_data
+
+
+def plot_distribution(angles1, angles2, indices1, indices2, title, label1, label2, output_file, show_plots):
+    """
+    Save and show (if user want it) the histogram and the distribution of angles for peaks or valleys.
+    """
+    def calculate_distribution(data, indices):
+        """
+        Function that extract the distribution, specific for this specific task
+        """
+        filtered_data = data[indices]
+        kde = gaussian_kde(filtered_data)
+        x = np.linspace(filtered_data.min(), filtered_data.max(), 500)
+        y = kde(x)
+        return {"mean": filtered_data.mean(), "std": filtered_data.std(), "x": x, "y": y}
+
+    #Two distributions
+    dist1 = calculate_distribution(angles1, indices1)
+    dist2 = calculate_distribution(angles2, indices2)
+
+    plt.figure(figsize=(10, 6))
+    plt.hist(angles1[indices1], bins=60, alpha=0.6, color="red", label=label1, density=True)
+    plt.hist(angles2[indices2], bins=60, alpha=0.6, color="blue", label=label2, density=True)
+    plt.plot(dist1["x"], dist1["y"], color="darkred", linestyle="--", label=f"{label1} Fit")
+    plt.plot(dist2["x"], dist2["y"], color="darkblue", linestyle="--", label=f"{label2} Fit")
+    plt.title(title)
+    plt.xlabel("Angle (degrees)")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.grid()
+
+    # Save and optionally show the plot
+    plt.savefig(output_file)
+    if show_plots:
+        plt.show()
+    plt.close()
+
+
+def plot_polar_angles(indices1, indices2, angles1, angles2, title, label1, label2, output_file, show_plots):
+    """
+    Save and show (if user want it) the plot of angles in polar coordinates.
+    """
+    angles1_rad = np.deg2rad(angles1[indices1])
+    angles2_rad = np.deg2rad(angles2[indices2])
+
+    plt.figure(figsize=(8, 8))
+    ax = plt.subplot(111, polar=True)
+
+    # Plot the data
+    ax.scatter(angles1_rad, indices1, color="red", label=label1)
+    ax.scatter(angles2_rad, indices2, color="blue", label=label2)
+
+    plt.title(title)
+    plt.legend()
+
+    # Save and optionally show the plot
+    plt.savefig(output_file)
+    if show_plots:
+        plt.show()
+    plt.close()
+
+def plot_angle_and_velocity_for_cycle(angles1, angles2, peaks1, peaks2, cycle_index, title, label1, label2, output_file, show_plots, frame_rate=30):
+    """
+    Plot angle and angular velocity for a specific cycle for two settings. 
+    """
+    # Data for first setting
+    start_frame1 = peaks1[cycle_index]
+    end_frame1 = peaks1[cycle_index + 1]
+    angles_cycle1 = angles1[start_frame1:end_frame1]
+    velocity_cycle1 = np.gradient(angles_cycle1, 1 / frame_rate)
+
+    # Data for second setting
+    start_frame2 = peaks2[cycle_index]
+    end_frame2 = peaks2[cycle_index + 1]
+    angles_cycle2 = angles2[start_frame2:end_frame2]
+    velocity_cycle2 = np.gradient(angles_cycle2, 1 / frame_rate)
+
+    fig, ax1 = plt.subplots(figsize=(12, 6))
+
+    ax1.plot(angles_cycle1, label=f"{label1} - Angle", color="red", linestyle="-")
+    ax1.plot(angles_cycle2, label=f"{label2} - Angle", color="blue", linestyle="-")
+    ax1.set_xlabel("Frame (within cycle)")
+    ax1.set_ylabel("Angle (degrees)", color="black")
+    ax1.tick_params(axis="y", labelcolor="black")
+    ax1.legend(loc="upper left")
+    ax1.grid()
+
+    ax2 = ax1.twinx()
+    ax2.plot(velocity_cycle1, label=f"{label1} - Angular Velocity", color="red", linestyle="--")
+    ax2.plot(velocity_cycle2, label=f"{label2} - Angular Velocity", color="blue", linestyle="--")
+    ax2.set_ylabel("Angular Velocity (degrees/second)", color="black")
+    ax2.tick_params(axis="y", labelcolor="black")
+    ax2.legend(loc="upper right")
+
+    # Save and optionally show the plot
+    plt.title(title)
+    plt.savefig(output_file)
     if show_plots:
         plt.show()
     plt.close()

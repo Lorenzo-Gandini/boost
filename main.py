@@ -1,16 +1,15 @@
 from utils import ask_athlete, ask_option, ask_yesno, user_message, print_recap
 
 def main():
-    # Richiesta delle informazioni sull'atleta
+    # Interaction with the user about athlets and desired output
     athlete = ask_athlete("Which athlete do you want to analyze?")
     athlete_mod = athlete.replace(" ", "_")
     athlete_mod_uc = athlete_mod.upper()
 
     option = ask_option("What type of analysis do you want to run?")
-    # want_pdf = ask_yesno("Do you want a PDF report?")
+    # want_pdf = ask_yesno("Do you want a PDF report?") #WORKINPROGRESS
     show_plots = ask_yesno("Do you want to see the plots during the analysis?")
 
-    # Mappa delle opzioni
     SPINE = option in {1, 5}
     KNEE = option in {2, 5}
     ANKLE = option in {3, 5}
@@ -56,6 +55,8 @@ def main():
     #     user_message("A PDF report will be generated.", "info")
     #     import pdf_generator
     #     pdf_generator.generate_report(athlete)
+
+    
         
 
 if __name__ == "__main__":

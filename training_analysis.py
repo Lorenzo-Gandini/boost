@@ -10,6 +10,9 @@ from datetime import datetime
 from utils import user_message
 
 def load_files(folder_path, athlete):
+    """
+    load the files with a specific pattern and return them sorted by date
+    """
     file_pattern = re.compile(rf"{re.escape(athlete)} - (.*?) - (\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}-\d{{2}})\.csv")
     files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
     selected_files = []
@@ -22,6 +25,9 @@ def load_files(folder_path, athlete):
     return selected_files
 
 def process_file(file_path):
+    """
+    Process the CSV file and return the DataFrame with data
+    """
     with open(file_path, 'r', encoding='utf-16') as f:
         lines = [line.rstrip(';\n') for line in f]
     cleaned_data = io.StringIO('\n'.join(lines))
@@ -35,6 +41,9 @@ def process_file(file_path):
     return data
 
 def analyze_data(data):
+    """
+    Analyze the data and return the metrics for each training phase
+    """
     fine_riscaldamento = 300
     inizio_defaticamento = data.index.max() - 300
     data['Fase'] = 'Fase Allenamento'
@@ -59,11 +68,14 @@ def analyze_data(data):
     return metrics
 
 def summary_data(results):
+    """
+    Create a summary DataFrame with the results from the analysis
+    """
     summary_data = []
     for result in results:
         file_date = result['date']
         
-        # Itera sulle metriche standard
+        # Standard metrics
         for metric, values in result['metrics'].items():
             summary_data.append({
                 'File': result['file'],
@@ -74,7 +86,7 @@ def summary_data(results):
                 'Mean': values['mean']
             })
         
-        # Aggiungi "VO2" come metrica separata, se presente
+        # If the vo2 data is available, add it as a separate metric
         if result['avg_vo2'] is not None and result['max_vo2'] is not None:
             summary_data.append({
                 'File': result['file'],
@@ -88,6 +100,9 @@ def summary_data(results):
     return summary_df
 
 def save_summary_json(data, athlete, athlete_mod_uc):
+    """
+    Save the summary data in a JSON file
+    """
     json_data = []
     for result in data:
         file_date = result['date']
@@ -101,7 +116,7 @@ def save_summary_json(data, athlete, athlete_mod_uc):
                 'Mean': float(values['mean'])
             })
         
-        # Aggiungi "VO2" come metrica separata, se presente
+        # Add VO2 data if available
         if result['avg_vo2'] is not None and result['max_vo2'] is not None:
             json_data.append({
                 'File': str(result['file']),
@@ -119,6 +134,9 @@ def save_summary_json(data, athlete, athlete_mod_uc):
     user_message("Training statistics have been saved.", "saving_stats")
 
 def plot_results(summary_df, athlete, athlete_mod_uc, show_plots):
+    """
+    Plot the results of the analysis
+    """
     metrics_to_plot = ['Potenza (watt)', 'Velocità (km/h)', 'Frequenza Cardiaca (bpm)', 'VO2']
     for metric in metrics_to_plot:
         metric_name = re.sub(r'\s*\(.*?\)', '', metric)    
@@ -150,6 +168,9 @@ def plot_results(summary_df, athlete, athlete_mod_uc, show_plots):
     user_message("All training graphs have been saved.", "saving_graph")
 
 def get_vo2_data(file_path, athlete, training_date):
+    """
+        Extract VO2 data for the athlete and the training date
+    """
     cognome, nome = athlete.split()
     vo2_df = pd.read_csv(file_path, parse_dates=['Data'], dayfirst=True)
     
@@ -159,18 +180,17 @@ def get_vo2_data(file_path, athlete, training_date):
         print(f"No VO2 data found for {nome} {cognome}.")
         return None, None  # Nessun dato VO2 trovato per l'atleta
 
-    # Converti in formato anno-mese-giorno
-    # Fai una copia per evitare il warning
+    #copy of the DataFrame because it continues to give SettingWithCopyWarning. Check this
     athlete_vo2 = athlete_vo2.copy()
 
-    # Ora è sicuro aggiungere nuove colonne o modificare esistenti
+    # Since the date in the technogym file and the table with vo2 data are not the same, we need to match them. 
+    # The correct date is the one that is close to the training date
+
     athlete_vo2['Data_Date'] = athlete_vo2['Data'].dt.date
     training_date_date = training_date.date()
 
-    # Calcola la differenza in giorni
     athlete_vo2['Date_Diff'] = (athlete_vo2['Data_Date'] - training_date_date).abs()
     closest_row = athlete_vo2.loc[athlete_vo2['Date_Diff'].idxmin()]
-
 
     avg_vo2 = closest_row['AVG_VO2']
     max_vo2 = closest_row['MAX_VO2']
@@ -178,6 +198,9 @@ def get_vo2_data(file_path, athlete, training_date):
     return avg_vo2, max_vo2
 
 def run_training_analysis(athlete, athlete_mod_uc, show_plots):
+    """
+    Entry point for the training analysis
+    """
     folder_path = f"training_data/{athlete}"
     vo2_file = "training_data/VO2_summary.csv"
     selected_files = load_files(folder_path, athlete)

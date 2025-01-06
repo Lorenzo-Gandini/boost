@@ -35,14 +35,13 @@ def run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     os.makedirs(output_folder_plot, exist_ok=True)
     os.makedirs(output_folder_stats, exist_ok=True)
 
-
-    # Split data into zones
+    # Split data into training zones
     zones_setting_1 = get_zones(pd.DataFrame(bones_pos_1.reshape(bones_pos_1.shape[0], -1)))
     zones_setting_2 = get_zones(pd.DataFrame(bones_pos_2.reshape(bones_pos_2.shape[0], -1)))
 
     # --- Stomach Angle Analysis ---
-    stomach_angles_1 = [analyze_angle_from_points(zone.values.reshape(-1, 21, 3), 0, 1, 1, 2) for zone in zones_setting_1]  # Restituisce tuple
-    stomach_angles_2 = [analyze_angle_from_points(zone.values.reshape(-1, 21, 3), 0, 1, 1, 2) for zone in zones_setting_2]  # Restituisce tuple
+    stomach_angles_1 = [analyze_angle_from_points(zone.values.reshape(-1, 21, 3), 0, 1, 1, 2) for zone in zones_setting_1] 
+    stomach_angles_2 = [analyze_angle_from_points(zone.values.reshape(-1, 21, 3), 0, 1, 1, 2) for zone in zones_setting_2] 
 
     # Estrai solo le serie per il plotting
     stomach_angles_1_series = [item[0] for item in stomach_angles_1]
@@ -57,8 +56,8 @@ def run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
 
 
     # --- Spine-Ground Angle Analysis ---
-    spine_angles_1 = [analyze_angle_from_points(zone.values.reshape(-1, 21, 3), 0, 2, 'ground', 'ground') for zone in zones_setting_1]  # Restituisce tuple
-    spine_angles_2 = [analyze_angle_from_points(zone.values.reshape(-1, 21, 3), 0, 2, 'ground', 'ground') for zone in zones_setting_2]  # Restituisce tuple
+    spine_angles_1 = [analyze_angle_from_points(zone.values.reshape(-1, 21, 3), 0, 2, 'ground', 'ground') for zone in zones_setting_1] 
+    spine_angles_2 = [analyze_angle_from_points(zone.values.reshape(-1, 21, 3), 0, 2, 'ground', 'ground') for zone in zones_setting_2] 
 
     # Estrai solo le serie per il plotting
     spine_angles_1_series = [item[0] for item in spine_angles_1]
@@ -71,11 +70,10 @@ def run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
         show_plots
     )
 
-    # Calcola le oscillazioni e le statistiche
+    #Oscillations and statistics
     all_oscillations_1, oscillations_stats_1 = calculate_oscillations(bones_pos_1, zones_setting_1)
     all_oscillations_2, oscillations_stats_2 = calculate_oscillations(bones_pos_2, zones_setting_2)
 
-    # Plot delle oscillazioni
     plot_oscillations(
         all_oscillations_1, all_oscillations_2,
         "Combined Oscillations Analysis",
@@ -94,7 +92,7 @@ def run_spine_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
         }
     }
 
-    # Definizione dei nomi delle zone
+    # Names of training zones
     zone_names = ["Zone 2", "Zone 3", "Zone 5"]
 
     # Salva le statistiche in formato JSON

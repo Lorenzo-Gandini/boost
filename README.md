@@ -128,3 +128,13 @@ output/
 
 Instead of running the entire analysis, you can perform an analysis of a single session. In the file `single_session_analysis.py`, there is a variable named `file_path`.  
 You can set this variable to the desired `.csv` file located in the `training_data` folder to generate graphs for that specific training session.
+
+### Customize Pedal Cycle Plotting in Knee and Ankle Analyses
+
+In the knee and ankle analysis scripts (`knee_analysis.py` and `ankle_analysis.py`), you can define which specific pedal cycle to plot by setting the variable `cycle_index`.  
+
+This variable allows you to focus on a particular cycle of the pedaling motion for detailed analysis. Simply edit the `cycle_index` variable in the corresponding script to the desired cycle number before running the analysis.
+
+For example:
+```python
+cycle_index = 75  # Plots the 75th pedal cycle

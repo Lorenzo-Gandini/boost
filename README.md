@@ -123,3 +123,8 @@ output/
 ```
 
 ---
+
+### Run a Single Training Session Analysis
+
+Instead of running the entire analysis, you can perform an analysis of a single session. In the file `single_session_analysis.py`, there is a variable named `file_path`.  
+You can set this variable to the desired `.csv` file located in the `training_data` folder to generate graphs for that specific training session.

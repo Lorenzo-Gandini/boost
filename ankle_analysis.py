@@ -1,152 +1,14 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import find_peaks
+from optitrack.csv_reader import Take
 from scipy.stats import gaussian_kde
 from utils import get_bones_position, calculate_angles, save_stats, ask_joint_side, user_message
-
-def analyze_ankle_angle(angles, angle_key):
-    """
-    Analyze a specific ankle angle from the extracted angles.
-    """
-    angle_data = np.array([frame[angle_key] for frame in angles])
-
-    # Trova picchi (massimi) e valli (minimi)
-    peaks, _ = find_peaks(angle_data, prominence=5)
-    valleys, _ = find_peaks(-angle_data, prominence=5)
-
-    # Metriche dei cicli
-    num_cycles = min(len(peaks), len(valleys))
-    peaks = peaks[:num_cycles]
-    valleys = valleys[:num_cycles]
-
-    cycle_amplitudes = angle_data[peaks] - angle_data[valleys]
-    cycle_durations = np.diff(peaks)
-    cadence = 60 / (np.mean(cycle_durations) / 30) if len(cycle_durations) > 0 else 0  # 30 FPS assumed
-
-    # Velocità angolare
-    angular_velocity = np.gradient(angle_data, 1 / 30)  # 30 FPS assumed
-    angular_velocity_mean = np.mean(angular_velocity)
-    angular_velocity_std = np.std(angular_velocity)
-
-    stats = {
-        "mean": np.mean(angle_data),
-        "std": np.std(angle_data),
-        "min": np.min(angle_data),
-        "max": np.max(angle_data),
-        "range": np.max(angle_data) - np.min(angle_data),
-        "cycle_amplitude_mean": np.mean(cycle_amplitudes) if len(cycle_amplitudes) > 0 else 0,
-        "cycle_amplitude_std": np.std(cycle_amplitudes) if len(cycle_amplitudes) > 0 else 0,
-        "cadence": cadence,
-        "angular_velocity_mean": angular_velocity_mean,
-        "angular_velocity_std": angular_velocity_std,
-    }
-
-    return stats, peaks, valleys, angle_data
-
-
-def plot_distribution(angles1, angles2, indices1, indices2, title, label1, label2, output_file, show_plots):
-    """
-    Plot the histogram and KDE of angles for peaks or valleys.
-    """
-    def calculate_distribution(data, indices):
-        filtered_data = data[indices]
-        kde = gaussian_kde(filtered_data)
-        x = np.linspace(filtered_data.min(), filtered_data.max(), 500)
-        y = kde(x)
-        return {"mean": filtered_data.mean(), "std": filtered_data.std(), "x": x, "y": y}
-
-    dist1 = calculate_distribution(angles1, indices1)
-    dist2 = calculate_distribution(angles2, indices2)
-
-    plt.figure(figsize=(10, 6))
-    plt.hist(angles1[indices1], bins=60, alpha=0.6, color="red", label=label1, density=True)
-    plt.hist(angles2[indices2], bins=60, alpha=0.6, color="blue", label=label2, density=True)
-    plt.plot(dist1["x"], dist1["y"], color="darkred", linestyle="--", label=f"{label1} Fit")
-    plt.plot(dist2["x"], dist2["y"], color="darkblue", linestyle="--", label=f"{label2} Fit")
-    plt.title(title)
-    plt.xlabel("Angle (degrees)")
-    plt.ylabel("Density")
-    plt.legend()
-    plt.grid()
-
-    # Save and optionally show the plot
-    plt.savefig(output_file)
-    if show_plots:
-        plt.show()
-    plt.close()
-
-
-def plot_polar_angles(indices1, indices2, angles1, angles2, title, label1, label2, output_file, show_plots):
-    """
-    Plot angles in polar coordinates using frame indices as the radial coordinate.
-    """
-    angles1_rad = np.deg2rad(angles1[indices1])
-    angles2_rad = np.deg2rad(angles2[indices2])
-
-    plt.figure(figsize=(8, 8))
-    ax = plt.subplot(111, polar=True)
-
-    # Plot the data
-    ax.scatter(angles1_rad, indices1, color="red", label=label1)
-    ax.scatter(angles2_rad, indices2, color="blue", label=label2)
-
-    plt.title(title)
-    plt.legend()
-
-    # Save and optionally show the plot
-    plt.savefig(output_file)
-    if show_plots:
-        plt.show()
-    plt.close()
-
-def plot_angle_and_velocity_for_cycle(
-    angles1, angles2, peaks1, peaks2, cycle_index, title, label1, label2, output_file, show_plots, frame_rate=30
-):
-    """
-    Plot angle and angular velocity for a specific cycle for two settings.
-    """
-    # Estrai i dati del ciclo per il Setting 1
-    start_frame1 = peaks1[cycle_index]
-    end_frame1 = peaks1[cycle_index + 1]
-    angles_cycle1 = angles1[start_frame1:end_frame1]
-    velocity_cycle1 = np.gradient(angles_cycle1, 1 / frame_rate)
-
-    # Estrai i dati del ciclo per il Setting 2
-    start_frame2 = peaks2[cycle_index]
-    end_frame2 = peaks2[cycle_index + 1]
-    angles_cycle2 = angles2[start_frame2:end_frame2]
-    velocity_cycle2 = np.gradient(angles_cycle2, 1 / frame_rate)
-
-    fig, ax1 = plt.subplots(figsize=(12, 6))
-
-    # Angoli sul primo asse Y
-    ax1.plot(angles_cycle1, label=f"{label1} - Angle", color="red", linestyle="-")
-    ax1.plot(angles_cycle2, label=f"{label2} - Angle", color="blue", linestyle="-")
-    ax1.set_xlabel("Frame (within cycle)")
-    ax1.set_ylabel("Angle (degrees)", color="black")
-    ax1.tick_params(axis="y", labelcolor="black")
-    ax1.legend(loc="upper left")
-    ax1.grid()
-
-    # Velocità angolare sul secondo asse Y
-    ax2 = ax1.twinx()
-    ax2.plot(velocity_cycle1, label=f"{label1} - Angular Velocity", color="red", linestyle="--")
-    ax2.plot(velocity_cycle2, label=f"{label2} - Angular Velocity", color="blue", linestyle="--")
-    ax2.set_ylabel("Angular Velocity (degrees/second)", color="black")
-    ax2.tick_params(axis="y", labelcolor="black")
-    ax2.legend(loc="upper right")
-
-    # Salva il grafico
-    plt.title(title)
-    plt.savefig(output_file)
-    if show_plots:
-        plt.show()
-    plt.close()
+from utils import plot_distribution, plot_polar_angles, plot_angle_and_velocity_for_cycle, analyze_joint_angle 
 
 def run_ankle_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
     """
-    Entry point for ankle analysis.
+    Entry point for the ankle analysis from main.
     """
     side = ask_joint_side("ankle")
 
@@ -157,7 +19,7 @@ def run_ankle_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
 
 def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots):
     """
-    Analyze a single ankle side.
+    Entry point for the single ankle analysis.
     """
     angle_key = "ankle_l" if side == "left" else "ankle_r"
 
@@ -168,9 +30,11 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
         print(f"Impossible to run the analysis for {athlete}. Missing data files.")
         return
 
-    from optitrack.csv_reader import Take
-    take_1 = Take().readCSV(csv_file_1)
-    take_2 = Take().readCSV(csv_file_2)
+    # COmparison between before and after the change of bike settings.
+    # Extract data, get positions, extract angles and get statistics about it
+    
+    take_1 = Take().readCSV(csv_file_1)     #Before
+    take_2 = Take().readCSV(csv_file_2)     #After
 
     body_edges_1, bones_pos_1, colors_1 = get_bones_position(take_1)
     angles_1 = calculate_angles(bones_pos_1)
@@ -178,13 +42,13 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
     body_edges_2, bones_pos_2, colors_2 = get_bones_position(take_2)
     angles_2 = calculate_angles(bones_pos_2)
 
-    stats1, peaks1, valleys1, angle_data1 = analyze_ankle_angle(angles_1, angle_key)
-    stats2, peaks2, valleys2, angle_data2 = analyze_ankle_angle(angles_2, angle_key)
+    stats1, peaks1, valleys1, angle_data1 = analyze_joint_angle(angles_1, angle_key)
+    stats2, peaks2, valleys2, angle_data2 = analyze_joint_angle(angles_2, angle_key)
 
     output_folder = f"output/{athlete}/plots/"
     os.makedirs(output_folder, exist_ok=True)
 
-    # Distribuzione per i picchi
+    # Graph for peaks
     plot_distribution(
         angle_data1, angle_data2, peaks1, peaks2,
         f"{side.capitalize()} Ankle Angle Distribution - Peaks",
@@ -194,7 +58,7 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
     )
 
 
-    # Distribuzione per i minimi
+    # Graph for valleys
     plot_distribution(
         angle_data1, angle_data2, valleys1, valleys2,
         f"{side.capitalize()} Ankle Angle Distribution - Valleys",
@@ -203,7 +67,7 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
         show_plots,
     )
 
-    # Grafico polare per i picchi
+    # Polar graph for angles peaks
     plot_polar_angles(
         peaks1, peaks2, angle_data1, angle_data2,
         f"{side.capitalize()} Ankle Polar Plot - Peaks",
@@ -212,7 +76,7 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
         show_plots,
     )
 
-    # Grafico polare per i minimi
+    # Polar graph for angles valleys
     plot_polar_angles(
         valleys1, valleys2, angle_data1, angle_data2,
         f"{side.capitalize()} Ankle Polar Plot - Valleys",
@@ -221,7 +85,7 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
         show_plots,
     )
 
-    cycle_index = 0  # Usa il primo ciclo per esempio
+    cycle_index = 0  #Define the cycle you want to analyze and plot the angle and velocity
     plot_angle_and_velocity_for_cycle(
         angle_data1, angle_data2, peaks1, peaks2, cycle_index,
         f"{side.capitalize()} Ankle - Single Cycle Analysis",

@@ -1,7 +1,5 @@
-mediapipe
 opencv-python
 numpy
 pandas
-trimesh
-pyglet
 open3d
+matplotlib

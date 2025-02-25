@@ -1,0 +1,7 @@
+cavallo 80,5
+busto 49
+
+
+135 valori in più
+anziché da 480, comncia a 520
+779-840

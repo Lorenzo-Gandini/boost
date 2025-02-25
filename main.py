@@ -57,7 +57,5 @@ def main():
     #     pdf_generator.generate_report(athlete)
 
     
-        
-
 if __name__ == "__main__":
         main()

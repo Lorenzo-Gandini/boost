@@ -1,6 +1,6 @@
 # Boost
 
-Welcome to the **Boost** repository! This project leverages advanced sports technology to analyze biomechanical and performance data, helping athletes and researchers optimize training and reduce injury risk.
+Welcome to the **Boost** repository! This project leverages advanced sports technology to analyze biomechanical and performance data, helping athletes and researchers optimize training, improve performances and reduce injury risk.
 
 ## Getting Started
 

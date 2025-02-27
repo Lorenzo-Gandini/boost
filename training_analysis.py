@@ -99,7 +99,7 @@ def summary_data(results):
     summary_df = pd.DataFrame(summary_data)
     return summary_df
 
-def save_summary_json(data, athlete, athlete_mod_uc):
+def save_summary_json(data, athlete):
     """
     Save the summary data in a JSON file
     """
@@ -127,13 +127,13 @@ def save_summary_json(data, athlete, athlete_mod_uc):
                 'Mean': float(result['avg_vo2'])
             })
 
-    json_file_path = f"output/{athlete}/stats/{athlete_mod_uc}_training_summary.json"
+    json_file_path = f"output/{athlete}/stats/{athlete}_training_summary.json"
     os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
     with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(json_data, json_file, indent=4)
     user_message("Training statistics have been saved.", "saving_stats")
 
-def plot_results(summary_df, athlete, athlete_mod_uc, show_plots):
+def plot_results(summary_df, athlete, show_plots):
     """
     Plot the results of the analysis
     """
@@ -142,7 +142,7 @@ def plot_results(summary_df, athlete, athlete_mod_uc, show_plots):
         metric_name = re.sub(r'\s*\(.*?\)', '', metric)    
         output_folder = f"output/{athlete}/plots/"
         os.makedirs(output_folder, exist_ok=True)
-        output_file = os.path.join(output_folder, f"{athlete_mod_uc}_training_{metric_name}.png")
+        output_file = os.path.join(output_folder, f"{athlete}_training_{metric_name}.png")
         
         metric_data = summary_df[summary_df['Metric'] == metric]
         plt.figure(figsize=(10, 6))
@@ -171,13 +171,12 @@ def get_vo2_data(file_path, athlete, training_date):
     """
         Extract VO2 data for the athlete and the training date
     """
-    cognome, nome = athlete.split()
     vo2_df = pd.read_csv(file_path, parse_dates=['Data'], dayfirst=True)
+    athlete_vo2 = vo2_df[vo2_df['Atleta'] == athlete]  # Now matching anonymized athlete name
     
-    athlete_vo2 = vo2_df[(vo2_df['Nome'] == nome) & (vo2_df['Cognome'] == cognome)]
 
     if athlete_vo2.empty:
-        print(f"No VO2 data found for {nome} {cognome}.")
+        print(f"No VO2 data found for {athlete}.")
         return None, None  # Nessun dato VO2 trovato per l'atleta
 
     #copy of the DataFrame because it continues to give SettingWithCopyWarning. Check this
@@ -197,7 +196,7 @@ def get_vo2_data(file_path, athlete, training_date):
     
     return avg_vo2, max_vo2
 
-def run_training_analysis(athlete, athlete_mod_uc, show_plots):
+def run_training_analysis(athlete, show_plots):
     """
     Entry point for the training analysis
     """
@@ -218,5 +217,5 @@ def run_training_analysis(athlete, athlete_mod_uc, show_plots):
             'max_vo2': max_vo2
         })
     summary_df = summary_data(results)
-    save_summary_json(results, athlete, athlete_mod_uc)
-    plot_results(summary_df, athlete, athlete_mod_uc, show_plots)
+    save_summary_json(results, athlete)
+    plot_results(summary_df, athlete, show_plots)

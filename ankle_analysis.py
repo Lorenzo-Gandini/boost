@@ -6,35 +6,36 @@ from scipy.stats import gaussian_kde
 from utils import get_bones_position, calculate_angles, save_stats, ask_joint_side, user_message
 from utils import plot_distribution, plot_polar_angles, plot_angle_and_velocity_for_cycle, analyze_joint_angle 
 
-def run_ankle_analysis(athlete, athlete_mod, athlete_mod_uc, show_plots):
+def run_ankle_analysis(athlete, show_plots):
     """
     Entry point for the ankle analysis from main.
     """
     side = ask_joint_side("ankle")
 
     if side in ["left", "both"]:
-        analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, "left", show_plots)
+        analyze_single_ankle(athlete, "left", show_plots)
     if side in ["right", "both"]:
-        analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, "right", show_plots)
+        analyze_single_ankle(athlete, "right", show_plots)
 
-def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots):
+
+def analyze_single_ankle(athlete, side, show_plots):
     """
     Entry point for the single ankle analysis.
     """
     angle_key = "ankle_l" if side == "left" else "ankle_r"
 
-    csv_file_1 = f"lab_records/{athlete_mod}_1.csv"
-    csv_file_2 = f"lab_records/{athlete_mod}_2.csv"
+    folder_path = f"lab_records/{athlete}"
+    files = sorted([f for f in os.listdir(folder_path) if f.startswith(athlete) and f.endswith(".csv")])
 
-    if not (os.path.exists(csv_file_1) and os.path.exists(csv_file_2)):
-        print(f"Impossible to run the analysis for {athlete}. Missing data files.")
+    if len(files) < 2:
+        print(f"❌ Impossible to run the analysis for {athlete}. Missing data files.")
         return
-
-    # COmparison between before and after the change of bike settings.
-    # Extract data, get positions, extract angles and get statistics about it
     
-    take_1 = Take().readCSV(csv_file_1)     #Before
-    take_2 = Take().readCSV(csv_file_2)     #After
+    csv_file_1 = os.path.join(folder_path, files[0])
+    csv_file_2 = os.path.join(folder_path, files[1])
+
+    take_1 = Take().readCSV(csv_file_1)  # Before
+    take_2 = Take().readCSV(csv_file_2)  # After
 
     body_edges_1, bones_pos_1, colors_1 = get_bones_position(take_1)
     angles_1 = calculate_angles(bones_pos_1)
@@ -53,17 +54,16 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
         angle_data1, angle_data2, peaks1, peaks2,
         f"{side.capitalize()} Ankle Angle Distribution - Peaks",
         "Setting 1 Peaks", "Setting 2 Peaks",
-        os.path.join(output_folder, f"{athlete_mod_uc}_ankle_{side}_peaks_distribution.png"),
+        os.path.join(output_folder, f"{athlete}_ankle_{side}_peaks_distribution.png"),
         show_plots,
     )
-
 
     # Graph for valleys
     plot_distribution(
         angle_data1, angle_data2, valleys1, valleys2,
         f"{side.capitalize()} Ankle Angle Distribution - Valleys",
         "Setting 1 Valleys", "Setting 2 Valleys",
-        os.path.join(output_folder, f"{athlete_mod_uc}_ankle_{side}_valleys_distribution.png"),
+        os.path.join(output_folder, f"{athlete}_ankle_{side}_valleys_distribution.png"),
         show_plots,
     )
 
@@ -72,7 +72,7 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
         peaks1, peaks2, angle_data1, angle_data2,
         f"{side.capitalize()} Ankle Polar Plot - Peaks",
         "Setting 1 Peaks", "Setting 2 Peaks",
-        os.path.join(output_folder, f"{athlete_mod_uc}_ankle_{side}_polar_peaks.png"),
+        os.path.join(output_folder, f"{athlete}_ankle_{side}_polar_peaks.png"),
         show_plots,
     )
 
@@ -81,20 +81,19 @@ def analyze_single_ankle(athlete, athlete_mod, athlete_mod_uc, side, show_plots)
         valleys1, valleys2, angle_data1, angle_data2,
         f"{side.capitalize()} Ankle Polar Plot - Valleys",
         "Setting 1 Valleys", "Setting 2 Valleys",
-        os.path.join(output_folder, f"{athlete_mod_uc}_ankle_{side}_polar_valleys.png"),
+        os.path.join(output_folder, f"{athlete}_ankle_{side}_polar_valleys.png"),
         show_plots,
     )
 
-    cycle_index = 0  #Define the cycle you want to analyze and plot the angle and velocity
+    cycle_index = 0  # Define the cycle you want to analyze and plot the angle and velocity
     plot_angle_and_velocity_for_cycle(
         angle_data1, angle_data2, peaks1, peaks2, cycle_index,
         f"{side.capitalize()} Ankle - Single Cycle Analysis",
         "Setting 1", "Setting 2",
-        os.path.join(output_folder, f"{athlete_mod_uc}_ankle_{side}_cycle_{cycle_index}_analysis.png"),
+        os.path.join(output_folder, f"{athlete}_ankle_{side}_cycle_{cycle_index}_analysis.png"),
         show_plots,
     )
 
     # Save statistics
     user_message(f"All graphs for the {side} ankle analysis have been saved.", "saving_graph")
-    save_stats(stats1, stats2, athlete, athlete_mod_uc, "ankle", side)
-
+    save_stats(stats1, stats2, athlete, "ankle", side)

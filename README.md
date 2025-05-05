@@ -1,4 +1,4 @@
-# Boost
+# BOOST - Biomechanical Optimized Observation in Sport Training
 
 Welcome to the ***Boost*** repository! This project utilizes advanced sports technology to analyze biomechanical and performance data, helping athletes and researchers optimize training, enhance performance, and reduce injury risk.
 If you want to run the analysis using the provided data, follow the instructions below. Otherwise, feel free to explore the project report and slides.
